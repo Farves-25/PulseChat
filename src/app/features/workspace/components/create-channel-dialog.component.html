@@ -1,0 +1,188 @@
+<div
+  class="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/55 px-3 py-6 backdrop-blur-md"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="create-channel-title"
+  (click)="close()"
+  (keydown.escape)="$event.stopPropagation(); close()"
+>
+  <div
+    class="glass-strong w-full max-w-lg overflow-hidden rounded-3xl animate-pop"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="flex items-start gap-3 border-b border-default px-5 py-4">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+        <svg lucidePlus [size]="18"></svg>
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="text-[0.56rem] font-bold uppercase tracking-[0.16em] text-muted">
+          {{ workspaceName() }}
+        </p>
+        <h2 id="create-channel-title" class="text-[1.05rem] font-extrabold tracking-tight text-soft">
+          Create a channel
+        </h2>
+        <p class="mt-0.5 text-[0.7rem] leading-4 text-muted">
+          Channels keep conversations focused. You can change the topic anytime.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="icon-btn h-8 w-8 shrink-0"
+        aria-label="Close dialog"
+        (click)="close()"
+      >
+        <svg lucideX [size]="16"></svg>
+      </button>
+    </header>
+
+    <form class="space-y-4 px-5 py-4" [formGroup]="form" (ngSubmit)="submit()">
+      <div>
+        <div class="flex items-center justify-between">
+          <label class="field-label" for="channel-name">Channel name</label>
+          <span class="text-[0.58rem] font-semibold text-muted-2">Required</span>
+        </div>
+        <div
+          class="flex items-center gap-2 rounded-xl border bg-[var(--surface-2)] px-3 transition focus-within:shadow-[0_0_0_4px_rgba(var(--accent-rgb),0.1)]"
+          [style.border-color]="showNameError() ? 'var(--danger)' : 'var(--border)'"
+        >
+          <span class="text-[1.05rem] font-bold text-muted">#</span>
+          <input
+            id="channel-name"
+            class="w-full bg-transparent py-2.5 text-[0.86rem] font-semibold text-soft outline-none placeholder:font-normal placeholder:text-muted-2"
+            type="text"
+            formControlName="name"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="32"
+            placeholder="design-system"
+            aria-describedby="channel-name-help"
+            appFocusOnInit
+            (input)="onNameInput($event)"
+          />
+        </div>
+        <p id="channel-name-help" class="mt-1 text-[0.6rem] text-muted">
+          @if (showNameError()) {
+            <span class="font-semibold" style="color: var(--danger)">
+              Use 2–32 letters, numbers, dashes, or underscores.
+            </span>
+          } @else {
+            Lowercase names read best. Preview:
+            <span class="font-semibold text-soft">#{{ slugPreview() }}</span>
+          }
+        </p>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between">
+          <label class="field-label" for="channel-topic">Topic</label>
+          <span class="text-[0.58rem] font-semibold text-muted-2">Optional</span>
+        </div>
+        <input
+          id="channel-topic"
+          class="field"
+          type="text"
+          formControlName="topic"
+          maxlength="140"
+          placeholder="What is this channel about?"
+        />
+      </div>
+
+      <fieldset>
+        <legend class="field-label">Who can join?</legend>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            class="rounded-2xl border p-3 text-left transition"
+            [style.border-color]="!isPrivate() ? 'rgba(var(--accent-rgb), 0.55)' : 'var(--border)'"
+            [style.background]="!isPrivate() ? 'rgba(var(--accent-rgb), 0.1)' : 'var(--surface-2)'"
+            [attr.aria-pressed]="!isPrivate()"
+            (click)="setPrivate(false)"
+          >
+            <span class="flex items-center gap-1.5 text-[0.7rem] font-bold" [style.color]="!isPrivate() ? 'var(--accent)' : 'var(--text-soft)'">
+              <svg lucideGlobe [size]="13"></svg>
+              Public
+            </span>
+            <span class="mt-0.5 block text-[0.6rem] leading-4 text-muted">
+              Anyone in the workspace can find and join.
+            </span>
+          </button>
+          <button
+            type="button"
+            class="rounded-2xl border p-3 text-left transition"
+            [style.border-color]="isPrivate() ? 'rgba(var(--accent-rgb), 0.55)' : 'var(--border)'"
+            [style.background]="isPrivate() ? 'rgba(var(--accent-rgb), 0.1)' : 'var(--surface-2)'"
+            [attr.aria-pressed]="isPrivate()"
+            (click)="setPrivate(true)"
+          >
+            <span class="flex items-center gap-1.5 text-[0.7rem] font-bold" [style.color]="isPrivate() ? 'var(--accent)' : 'var(--text-soft)'">
+              <svg lucideLock [size]="13"></svg>
+              Private
+            </span>
+            <span class="mt-0.5 block text-[0.6rem] leading-4 text-muted">
+              Only invited teammates can see it.
+            </span>
+          </button>
+        </div>
+      </fieldset>
+
+      @if (isPrivate()) {
+        <div class="rounded-2xl border border-default bg-[var(--surface-2)] p-1.5">
+          <div class="flex items-center justify-between px-1.5 pb-1">
+            <span class="text-[0.56rem] font-bold uppercase tracking-[0.14em] text-muted">
+              Invite teammates
+            </span>
+            <span class="text-[0.56rem] font-semibold text-muted-2">
+              {{ selectedIds().size }} selected
+            </span>
+          </div>
+          <div class="max-h-40 overflow-y-auto">
+            @for (member of others(); track member.id) {
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-[var(--surface-3)]"
+                [attr.aria-pressed]="isSelected(member)"
+                (click)="toggleMember(member)"
+              >
+                <app-user-avatar
+                  [profile]="member"
+                  [size]="24"
+                  [presence]="member.presence"
+                  [showPresence]="true"
+                />
+                <span class="min-w-0 flex-1 truncate text-[0.7rem] font-semibold text-soft">
+                  {{ member.display_name }}
+                </span>
+                <span class="shrink-0 text-[0.58rem] text-muted">@{{ member.handle }}</span>
+                <span
+                  class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition"
+                  [style.border-color]="isSelected(member) ? 'var(--accent)' : 'var(--border-strong)'"
+                  [style.background]="isSelected(member) ? 'var(--accent)' : 'transparent'"
+                  [style.color]="isSelected(member) ? 'white' : 'transparent'"
+                >
+                  <svg lucideCheck [size]="9"></svg>
+                </span>
+              </button>
+            } @empty {
+              <p class="px-2 py-3 text-center text-[0.66rem] text-muted">You're the only member here so far.</p>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="flex items-center justify-end gap-2 border-t border-default pt-3">
+        <button type="button" class="btn-ghost" [disabled]="creating()" (click)="close()">
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary" [disabled]="creating()">
+          @if (creating()) {
+            <svg lucideLoaderCircle class="animate-spin" [size]="15"></svg>
+            Creating…
+          } @else {
+            <svg lucidePlus [size]="15"></svg>
+            Create channel
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,196 @@
+<header class="relative flex h-[4.25rem] shrink-0 items-center gap-2 border-b border-default px-3 sm:px-5">
+  <button
+    type="button"
+    class="icon-btn -ml-1 shrink-0 lg:hidden"
+    aria-label="Open channel list"
+    (click)="toggleSidebar.emit()"
+  >
+    <svg lucideMenu [size]="19"></svg>
+  </button>
+
+  @if (isDm()) {
+    <app-user-avatar
+      class="shrink-0"
+      [profile]="dmProfile()"
+      [size]="32"
+      [presence]="presence()"
+      [showPresence]="true"
+    />
+  } @else {
+    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+      @if (channel()?.is_private) {
+        <svg lucideLock [size]="15"></svg>
+      } @else {
+        <span class="text-[1.05rem] font-extrabold leading-none">#</span>
+      }
+    </span>
+  }
+
+  <div class="min-w-0 flex-1">
+    <div class="flex min-w-0 items-center gap-1.5">
+      <h1 class="truncate text-[0.94rem] font-extrabold tracking-[-0.02em] text-soft">
+        {{ isDm() ? state.activeChannelName() : '#' + (channel()?.name ?? '') }}
+      </h1>
+      @if (channel()?.is_private && !isDm()) {
+        <span class="hidden shrink-0 rounded-md border border-default px-1.5 py-px text-[0.52rem] font-bold uppercase tracking-[0.08em] text-muted sm:inline">
+          Private
+        </span>
+      }
+      <button
+        type="button"
+        class="icon-btn h-6 w-6 shrink-0 rounded-md"
+        [class.text-amber-400]="starred()"
+        [attr.aria-label]="starred() ? 'Remove channel from starred' : 'Star channel'"
+        [attr.aria-pressed]="starred()"
+        [title]="starred() ? 'Remove from starred' : 'Star channel'"
+        (click)="toggleStar()"
+      >
+        <svg lucideStar [size]="13" [attr.fill]="starred() ? 'currentColor' : 'none'"></svg>
+      </button>
+    </div>
+
+    @if (!editingTopic()) {
+      <button
+        type="button"
+        class="mt-0.5 flex max-w-full items-center gap-1.5 text-left text-[0.65rem] leading-4 text-muted transition hover:text-soft"
+        [attr.aria-label]="isDm() ? 'Direct message details' : 'Edit channel topic'"
+        (click)="startTopicEdit()"
+      >
+        @if (isDm()) {
+          <span
+            class="h-1.5 w-1.5 shrink-0 rounded-full"
+            [style.background]="presence() === 'online' ? 'var(--success)' : presence() === 'away' ? 'var(--warning)' : presence() === 'dnd' ? 'var(--danger)' : 'var(--muted-2)'"
+          ></span>
+        }
+        <span class="truncate">
+          {{ state.activeChannelSubtitle() || (isDm() ? 'Direct message' : 'Add a topic to keep everyone aligned') }}
+        </span>
+      </button>
+    } @else {
+      <div class="mt-0.5 flex items-center gap-1.5">
+        <input
+          class="w-full max-w-md rounded-md border border-[rgba(var(--accent-rgb),0.4)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.68rem] text-soft outline-none focus:ring-2 focus:ring-[rgba(var(--accent-rgb),0.2)]"
+          aria-label="Channel topic"
+          maxlength="120"
+          [value]="topicDraft()"
+          (input)="topicDraft.set($any($event.target).value)"
+          (keydown)="onTopicKeydown($event)"
+          (blur)="saveTopic()"
+        />
+        <button type="button" class="text-[0.6rem] font-bold text-muted hover:text-soft" (click)="cancelTopicEdit()">
+          Cancel
+        </button>
+      </div>
+    }
+  </div>
+
+  <div class="flex shrink-0 items-center gap-0.5">
+    @if (!isDm() && members().length) {
+      <div class="mr-1 hidden items-center md:flex">
+        <div class="flex -space-x-1.5">
+          @for (member of members().slice(0, 3); track member.id) {
+            <app-user-avatar
+              class="ring-2 ring-[var(--bg)]"
+              [profile]="member"
+              [size]="22"
+            />
+          }
+        </div>
+        <button
+          type="button"
+          class="ml-1.5 inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-[0.62rem] font-semibold text-muted transition hover:bg-[var(--surface-3)] hover:text-soft"
+          (click)="openPanel('members')"
+        >
+          <svg lucideUsers [size]="12"></svg>
+          {{ memberCount() }}
+        </button>
+      </div>
+    }
+
+    <button
+      type="button"
+      class="icon-btn h-8 w-8"
+      aria-label="Search this channel"
+      title="Search messages"
+      (click)="openPanel('search')"
+    >
+      <svg lucideSearch [size]="16"></svg>
+    </button>
+    <button
+      type="button"
+      class="icon-btn h-8 w-8"
+      aria-label="Pinned messages"
+      title="Pinned messages"
+      (click)="openPanel('pins')"
+    >
+      <svg lucidePin [size]="16"></svg>
+    </button>
+    <button
+      type="button"
+      class="icon-btn hidden h-8 w-8 sm:inline-flex"
+      aria-label="Shared files"
+      title="Shared files"
+      (click)="openPanel('files')"
+    >
+      <svg lucideFileText [size]="16"></svg>
+    </button>
+    <button
+      type="button"
+      class="icon-btn hidden h-8 w-8 sm:inline-flex"
+      aria-label="Members"
+      title="Members"
+      (click)="openPanel('members')"
+    >
+      <svg lucideUsers [size]="16"></svg>
+    </button>
+
+    <div class="relative" appClickOutside (clickOutside)="moreOpen.set(false)">
+      <button
+        type="button"
+        class="icon-btn h-8 w-8"
+        aria-label="More channel actions"
+        [attr.aria-expanded]="moreOpen()"
+        (click)="moreOpen.update((value) => !value)"
+      >
+        <svg lucideMoreHorizontal [size]="16"></svg>
+      </button>
+
+      @if (moreOpen()) {
+        <div class="glass-strong absolute right-0 top-full z-50 mt-1.5 w-52 overflow-hidden rounded-xl p-1 animate-pop">
+          @if (isDm()) {
+            <button type="button" class="header-menu-item" (click)="viewProfile()">
+              <svg lucideUsers [size]="14"></svg>
+              View member profile
+            </button>
+          } @else {
+            <button type="button" class="header-menu-item" (click)="openPanel('members')">
+              <svg lucideUsers [size]="14"></svg>
+              Channel details
+            </button>
+            <button type="button" class="header-menu-item" (click)="startTopicEdit(); moreOpen.set(false)">
+              <span class="text-[0.8rem] font-bold">#</span>
+              Edit topic
+            </button>
+            <button type="button" class="header-menu-item" (click)="openPanel('pins')">
+              <svg lucidePin [size]="14"></svg>
+              Pinned messages
+            </button>
+            <button type="button" class="header-menu-item" (click)="openPanel('files')">
+              <svg lucideFileText [size]="14"></svg>
+              Shared files
+            </button>
+          }
+          <span class="my-1 block h-px bg-[var(--border)]"></span>
+          <button type="button" class="header-menu-item" (click)="copyLink()">
+            <svg lucideCopy [size]="14"></svg>
+            Copy channel link
+          </button>
+          <button type="button" class="header-menu-item" (click)="muteChannel()">
+            <svg lucideBell [size]="14"></svg>
+            Mute notifications
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

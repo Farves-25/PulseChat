@@ -1,0 +1,137 @@
+<div
+  class="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/55 px-3 py-6 backdrop-blur-md"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="create-workspace-title"
+  (click)="close()"
+  (keydown.escape)="$event.stopPropagation(); close()"
+>
+  <div
+    class="glass-strong w-full max-w-md overflow-hidden rounded-3xl animate-pop"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="flex items-start gap-3 border-b border-default px-5 py-4">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+        <svg lucideSparkles [size]="18"></svg>
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="text-[0.56rem] font-bold uppercase tracking-[0.16em] text-muted">New space</p>
+        <h2 id="create-workspace-title" class="text-[1.05rem] font-extrabold tracking-tight text-soft">
+          Create a workspace
+        </h2>
+        <p class="mt-0.5 text-[0.7rem] leading-4 text-muted">
+          A workspace is a home for one team, project, or community.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="icon-btn h-8 w-8 shrink-0"
+        aria-label="Close dialog"
+        (click)="close()"
+      >
+        <svg lucideX [size]="16"></svg>
+      </button>
+    </header>
+
+    <form class="space-y-4 px-5 py-4" [formGroup]="form" (ngSubmit)="submit()">
+      <div>
+        <label class="field-label" for="workspace-name">Workspace name</label>
+        <input
+          id="workspace-name"
+          class="field"
+          type="text"
+          formControlName="name"
+          maxlength="40"
+          autocomplete="off"
+          placeholder="Northstar Studio"
+          appFocusOnInit
+          (input)="onNameInput($event)"
+        />
+        @if (showNameError()) {
+          <p class="mt-1 text-[0.6rem] font-semibold" style="color: var(--danger)">
+            Give your workspace a name (2–40 characters).
+          </p>
+        }
+      </div>
+
+      <div>
+        <label class="field-label" for="workspace-slug">Workspace URL</label>
+        <div class="flex items-center gap-1.5 rounded-xl border border-default bg-[var(--surface-2)] px-3">
+          <span class="text-[0.7rem] text-muted">pulse.chat/app/</span>
+          <input
+            id="workspace-slug"
+            class="w-full bg-transparent py-2.5 text-[0.8rem] font-semibold text-soft outline-none placeholder:font-normal placeholder:text-muted-2"
+            type="text"
+            formControlName="slug"
+            maxlength="32"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="northstar"
+            (input)="onSlugInput($event)"
+          />
+        </div>
+        @if (showSlugError()) {
+          <p class="mt-1 text-[0.6rem] font-semibold" style="color: var(--danger)">
+            Use 2–32 lowercase letters, numbers, or dashes.
+          </p>
+        } @else {
+          <p class="mt-1 text-[0.6rem] text-muted">
+            Your team will join at
+            <span class="font-semibold text-soft">/app/{{ slugPreview() }}</span>
+          </p>
+        }
+      </div>
+
+      <fieldset>
+        <legend class="field-label">Workspace icon</legend>
+        <div class="grid grid-cols-6 gap-1.5">
+          @for (icon of icons; track icon) {
+            <button
+              type="button"
+              class="flex aspect-square items-center justify-center rounded-xl border text-[1.05rem] transition"
+              [style.border-color]="selectedIcon() === icon ? 'rgba(var(--accent-rgb), 0.55)' : 'var(--border)'"
+              [style.background]="selectedIcon() === icon ? 'rgba(var(--accent-rgb), 0.14)' : 'var(--surface-2)'"
+              [attr.aria-pressed]="selectedIcon() === icon"
+              [attr.aria-label]="'Use ' + icon + ' as workspace icon'"
+              (click)="pickIcon(icon)"
+            >
+              {{ icon }}
+            </button>
+          }
+        </div>
+      </fieldset>
+
+      <div class="rounded-2xl border border-default bg-[var(--surface-2)] p-3">
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl text-[1.2rem]" style="background: rgba(var(--accent-rgb), 0.14)">
+            {{ selectedIcon() }}
+          </span>
+          <div class="min-w-0">
+            <p class="truncate text-[0.76rem] font-bold text-soft">
+              {{ nameValue() || 'Your workspace' }}
+            </p>
+            <p class="truncate text-[0.6rem] text-muted">
+              /app/{{ slugPreview() }} · You'll be the admin
+            </p>
+          </div>
+          <svg lucideCheck class="ml-auto shrink-0 text-accent" [size]="15"></svg>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 border-t border-default pt-3">
+        <button type="button" class="btn-ghost" [disabled]="creating()" (click)="close()">
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary" [disabled]="creating()">
+          @if (creating()) {
+            <svg lucideLoaderCircle class="animate-spin" [size]="15"></svg>
+            Creating…
+          } @else {
+            <svg lucideSparkles [size]="15"></svg>
+            Create workspace
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,9 @@
+:host {
+  display: block;
+  height: 100dvh;
+}
+
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}

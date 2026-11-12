@@ -1,0 +1,200 @@
+<div class="app-atmosphere flex h-dvh w-full overflow-hidden">
+  <app-workspace-rail (createWorkspace)="createWorkspaceOpen.set(true)" />
+
+  <!-- Desktop channel sidebar -->
+  <aside class="hidden w-[17.5rem] shrink-0 border-r border-default bg-[color-mix(in_oklab,var(--surface-solid)_70%,transparent)] backdrop-blur-xl lg:block">
+    <app-channel-sidebar
+      (selectChannel)="selectChannel($event)"
+      (createChannel)="createChannelOpen.set(true)"
+      (createWorkspace)="createWorkspaceOpen.set(true)"
+      (openProfile)="profileOpen.set(true)"
+      (closeMobile)="mobileSidebar.set(false)"
+    />
+  </aside>
+
+  <!-- Mobile channel sidebar -->
+  @if (mobileSidebar()) {
+    <div class="fixed inset-0 z-[120] lg:hidden">
+      <button
+        type="button"
+        class="absolute inset-0 bg-black/55 backdrop-blur-sm"
+        aria-label="Close navigation"
+        (click)="mobileSidebar.set(false)"
+      ></button>
+      <aside class="absolute inset-y-0 left-0 flex w-[18rem] max-w-[86vw] flex-col border-r border-default bg-[var(--surface-solid)] shadow-card animate-fade-up">
+        <app-channel-sidebar
+          (selectChannel)="selectChannel($event)"
+          (createChannel)="createChannelOpen.set(true)"
+          (createWorkspace)="createWorkspaceOpen.set(true)"
+          (openProfile)="profileOpen.set(true)"
+          (closeMobile)="mobileSidebar.set(false)"
+        />
+      </aside>
+    </div>
+  }
+
+  <main class="relative flex min-w-0 flex-1">
+    @if (showWorkspaceLoading()) {
+      <div class="flex flex-1 flex-col items-center justify-center gap-5 px-6">
+        <div class="relative">
+          <div class="absolute -inset-6 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-rgb),0.28),transparent_70%)] blur-xl"></div>
+          <app-logo-mark [size]="58" />
+        </div>
+        <div class="flex items-center gap-2 rounded-full border border-default bg-[var(--surface-2)] px-3.5 py-1.5 text-[0.7rem] font-semibold text-muted">
+          <svg lucideLoaderCircle class="animate-spin text-accent" [size]="14"></svg>
+          Preparing your workspace…
+        </div>
+      </div>
+    } @else if (!state.activeWorkspace()) {
+      <div class="flex flex-1 items-center justify-center overflow-y-auto px-4 py-10">
+        <div class="glass w-full max-w-lg rounded-[2rem] p-7 text-center animate-fade-up sm:p-9">
+          <div class="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center">
+            <div class="absolute inset-0 rounded-[1.7rem] bg-accent-soft blur-xl"></div>
+            <app-logo-mark [size]="64" />
+          </div>
+
+          <p class="text-[0.6rem] font-bold uppercase tracking-[0.22em] text-accent">
+            {{ state.workspaces().length ? 'One more step' : 'Welcome to PulseChat' }}
+          </p>
+          <h1 class="mt-2 text-[1.7rem] font-extrabold leading-tight tracking-[-0.04em] text-soft">
+            {{ state.workspaces().length ? 'Create another workspace' : 'Your team, in one pulse' }}
+          </h1>
+          <p class="mx-auto mt-2.5 max-w-sm text-[0.82rem] leading-6 text-muted">
+            Channels for focus, threads for depth, and mentions that reach the right person. Create a
+            workspace to get your first conversation started.
+          </p>
+
+          <div class="mt-6 grid gap-2 text-left sm:grid-cols-2">
+            <div class="rounded-2xl border border-default bg-[var(--surface-2)] p-3">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <svg lucideHash [size]="14"></svg>
+              </span>
+              <p class="mt-2 text-[0.72rem] font-bold text-soft">Channels & DMs</p>
+              <p class="text-[0.62rem] leading-4 text-muted">Public, private, and one-to-one conversations.</p>
+            </div>
+            <div class="rounded-2xl border border-default bg-[var(--surface-2)] p-3">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <svg lucideMessageSquare [size]="14"></svg>
+              </span>
+              <p class="mt-2 text-[0.72rem] font-bold text-soft">Threads in context</p>
+              <p class="text-[0.62rem] leading-4 text-muted">Deep dives that never derail the channel.</p>
+            </div>
+            <div class="rounded-2xl border border-default bg-[var(--surface-2)] p-3">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <svg lucideUsers [size]="14"></svg>
+              </span>
+              <p class="mt-2 text-[0.72rem] font-bold text-soft">Live presence</p>
+              <p class="text-[0.62rem] leading-4 text-muted">See who is around, typing, and available.</p>
+            </div>
+            <div class="rounded-2xl border border-default bg-[var(--surface-2)] p-3">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <svg lucideZap [size]="14"></svg>
+              </span>
+              <p class="mt-2 text-[0.72rem] font-bold text-soft">Realtime by default</p>
+              <p class="text-[0.62rem] leading-4 text-muted">Messages, reactions, and pins stay in sync.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn-primary mt-6 w-full sm:w-auto"
+            (click)="createWorkspaceOpen.set(true)"
+          >
+            <svg lucidePlus [size]="16"></svg>
+            Create your workspace
+            <svg lucideArrowRight [size]="15"></svg>
+          </button>
+
+          <p class="mt-3 inline-flex items-center gap-1.5 text-[0.6rem] text-muted-2">
+            <svg lucideSparkles [size]="11"></svg>
+            You'll be the workspace admin and can invite your team right away.
+          </p>
+        </div>
+      </div>
+    } @else if (!state.activeChannel()) {
+      <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+          <svg lucideHash [size]="24"></svg>
+        </span>
+        <h2 class="text-lg font-extrabold tracking-tight text-soft">Pick a channel</h2>
+        <p class="max-w-xs text-[0.78rem] leading-5 text-muted">
+          Choose a channel from the sidebar, or start a new conversation of your own.
+        </p>
+        <button type="button" class="btn-ghost mt-1 lg:hidden" (click)="mobileSidebar.set(true)">
+          Open channels
+        </button>
+      </div>
+    } @else {
+      <section class="flex min-w-0 flex-1 flex-col">
+        <app-chat-header (toggleSidebar)="mobileSidebar.set(true)" />
+
+        <app-message-list />
+
+        <div class="shrink-0">
+          @if (state.typingLabel(); as typing) {
+            <div class="flex items-center gap-2 px-4 pb-0.5 pt-1 text-[0.63rem] font-medium text-muted sm:px-6">
+              <span class="flex items-end gap-0.5 text-accent">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+              </span>
+              {{ typing }}
+            </div>
+          }
+          <app-message-composer [placeholder]="composerPlaceholder()" />
+        </div>
+      </section>
+
+      @if (state.hasThread()) {
+        <button
+          type="button"
+          class="absolute inset-0 z-[100] bg-black/45 backdrop-blur-[2px] xl:hidden"
+          aria-label="Close thread"
+          (click)="state.closeThread()"
+        ></button>
+        <aside class="absolute inset-y-0 right-0 z-[110] w-full max-w-md border-l border-default bg-[var(--surface-solid)] shadow-card xl:static xl:z-auto xl:w-[23rem] xl:max-w-none xl:shadow-none">
+          <app-thread-drawer />
+        </aside>
+      }
+
+      @if (!state.hasThread() && state.panel()) {
+        <button
+          type="button"
+          class="absolute inset-0 z-[100] bg-black/45 backdrop-blur-[2px] xl:hidden"
+          aria-label="Close panel"
+          (click)="state.closePanel()"
+        ></button>
+        <aside class="absolute inset-y-0 right-0 z-[110] w-full max-w-md border-l border-default bg-[var(--surface-solid)] shadow-card xl:static xl:z-auto xl:w-[21.5rem] xl:max-w-none xl:shadow-none">
+          <app-side-panel />
+        </aside>
+      }
+    }
+  </main>
+
+  @if (commandOpen()) {
+    <app-command-palette
+      (closed)="commandOpen.set(false)"
+      (createChannel)="createChannelOpen.set(true)"
+      (createWorkspace)="createWorkspaceOpen.set(true)"
+      (openProfile)="profileOpen.set(true)"
+    />
+  }
+
+  @if (createChannelOpen()) {
+    <app-create-channel-dialog
+      (closed)="createChannelOpen.set(false)"
+      (created)="onChannelCreated()"
+    />
+  }
+
+  @if (createWorkspaceOpen()) {
+    <app-create-workspace-dialog
+      (closed)="createWorkspaceOpen.set(false)"
+      (created)="onWorkspaceCreated($event)"
+    />
+  }
+
+  @if (profileOpen()) {
+    <app-profile-settings (closed)="profileOpen.set(false)" />
+  }
+</div>

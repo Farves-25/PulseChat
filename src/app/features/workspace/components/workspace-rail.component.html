@@ -1,0 +1,65 @@
+<nav
+  class="relative flex h-full w-[4.4rem] shrink-0 flex-col items-center gap-2 border-r border-default py-3"
+  aria-label="Workspaces"
+>
+  <button type="button" class="shrink-0 transition hover:scale-[1.04]" aria-label="PulseChat home" (click)="goHome()">
+    <app-logo-mark [size]="38" />
+  </button>
+
+  <span class="my-1 h-px w-7 bg-[var(--border)]"></span>
+
+  <div class="no-scrollbar flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto px-1">
+    @for (workspace of workspaces(); track workspace.id) {
+      <button
+        type="button"
+        class="tooltip group relative flex h-11 w-11 shrink-0 items-center justify-center border text-[1.05rem] font-extrabold transition-all duration-200"
+        [class.rounded-xl]="isActive(workspace)"
+        [class.rounded-2xl]="!isActive(workspace)"
+        [style.background]="isActive(workspace) ? 'rgba(var(--accent-rgb), 0.14)' : 'var(--surface-2)'"
+        [style.color]="isActive(workspace) ? 'var(--accent)' : 'var(--text-soft)'"
+        [style.border-color]="isActive(workspace) ? 'rgba(var(--accent-rgb), 0.4)' : 'transparent'"
+        [style.box-shadow]="isActive(workspace) ? 'var(--shadow-card)' : 'none'"
+        [attr.data-tooltip]="workspace.name"
+        [attr.aria-label]="workspace.name + (isActive(workspace) ? ' (active)' : '')"
+        [attr.aria-current]="isActive(workspace) ? 'true' : null"
+        (click)="select(workspace)"
+      >
+        @if (isActive(workspace)) {
+          <span class="absolute -left-2 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_12px_rgba(var(--accent-rgb),0.8)]"></span>
+        }
+        @if (workspace.icon_emoji) {
+          <span class="leading-none">{{ workspace.icon_emoji }}</span>
+        } @else {
+          <span class="text-[0.72rem] tracking-tight">{{ initials(workspace) }}</span>
+        }
+      </button>
+    }
+
+    <button
+      type="button"
+      class="tooltip mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-dashed text-muted transition hover:bg-accent-soft hover:text-accent"
+      style="border-color: var(--border-strong)"
+      data-tooltip="Create workspace"
+      aria-label="Create workspace"
+      (click)="createWorkspace.emit()"
+    >
+      <svg lucidePlus [size]="18"></svg>
+    </button>
+  </div>
+
+  <span class="h-px w-7 bg-[var(--border)]"></span>
+
+  <button
+    type="button"
+    class="tooltip mb-1 flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-[var(--surface-3)] hover:text-soft"
+    [attr.data-tooltip]="theme.theme() === 'dark' ? 'Light mode' : 'Dark mode'"
+    [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+    (click)="toggleTheme()"
+  >
+    @if (theme.theme() === 'dark') {
+      <svg lucideSun [size]="17"></svg>
+    } @else {
+      <svg lucideMoon [size]="17"></svg>
+    }
+  </button>
+</nav>

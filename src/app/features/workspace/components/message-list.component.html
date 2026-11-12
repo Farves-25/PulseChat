@@ -1,0 +1,96 @@
+<div class="relative flex h-full w-full min-h-0 flex-col">
+  @if (state.messagesLoading() && state.messages().length === 0) {
+    <div class="flex-1 space-y-6 overflow-hidden px-5 py-7 sm:px-7" aria-hidden="true">
+      @for (row of [1, 2, 3, 4, 5, 6]; track row) {
+        <div class="flex gap-3">
+          <div class="skeleton h-9 w-9 shrink-0 rounded-full"></div>
+          <div class="w-full max-w-lg space-y-2 pt-1">
+            <div class="skeleton h-2.5 rounded" [style.width.%]="22 + (row % 3) * 9"></div>
+            <div class="skeleton h-2.5 rounded" [style.width.%]="58 + (row % 4) * 8"></div>
+            <div class="skeleton h-2.5 rounded" [style.width.%]="36 + (row % 2) * 12"></div>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (state.messages().length === 0) {
+    <div class="flex flex-1 items-center justify-center overflow-y-auto px-5 py-10">
+      <div class="w-full max-w-lg text-center animate-fade-up">
+        <div class="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center">
+          <div class="absolute inset-0 rounded-[1.6rem] bg-accent-soft blur-xl"></div>
+          <div class="relative flex h-16 w-16 items-center justify-center rounded-[1.35rem] border border-default bg-[var(--surface-solid)] shadow-card">
+            @if (isDm()) {
+              <svg lucideMessageSquare class="text-accent" [size]="26"></svg>
+            } @else if (channel()?.is_private) {
+              <svg lucideLock class="text-accent" [size]="26"></svg>
+            } @else {
+              <svg lucideHash class="text-accent" [size]="27"></svg>
+            }
+          </div>
+        </div>
+
+        <p class="text-[0.63rem] font-bold uppercase tracking-[0.2em] text-accent">
+          {{ isDm() ? 'Direct conversation' : 'New channel' }}
+        </p>
+        <h2 class="mt-2 text-2xl font-extrabold tracking-[-0.035em]">
+          {{ isDm() ? 'Say hello to ' + state.activeChannelName() : 'This is the start of #' + channel()?.name }}
+        </h2>
+        <p class="mx-auto mt-2.5 max-w-sm text-[0.82rem] leading-6 text-muted">
+          @if (isDm()) {
+            This is the beginning of your direct message history. Messages here are private between the two of you.
+          } @else {
+            Share the plan, ask a question, or drop a first update. Everything starts with one message.
+          }
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <span class="settings-chip">
+            <svg lucideUsers [size]="13"></svg>
+            {{ memberCount() }} {{ memberCount() === 1 ? 'member' : 'members' }}
+          </span>
+          <span class="settings-chip">
+            <svg lucideSparkles [size]="13"></svg>
+            Threads stay in context
+          </span>
+          <span class="settings-chip">
+            <kbd class="rounded border border-default bg-[var(--surface-3)] px-1 py-px font-mono text-[0.58rem]">Shift</kbd>
+            <span>+</span>
+            <kbd class="rounded border border-default bg-[var(--surface-3)] px-1 py-px font-mono text-[0.58rem]">Enter</kbd>
+            <span>for a new line</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <cdk-virtual-scroll-viewport
+      autosize
+      [minBufferPx]="700"
+      [maxBufferPx]="1000"
+      class="message-viewport h-full w-full"
+    >
+      <div class="py-3">
+        <ng-container *cdkVirtualFor="let row of rows(); trackBy: trackRow">
+          @if (row.kind === 'divider') {
+            <div class="px-5 py-3 sm:px-7">
+              <div class="divider-label">
+                <span>{{ row.label }}</span>
+              </div>
+            </div>
+          } @else {
+            <app-message-item [message]="row.message" [grouped]="row.grouped" />
+          }
+        </ng-container>
+      </div>
+    </cdk-virtual-scroll-viewport>
+  }
+
+  @if (showJump()) {
+    <button
+      type="button"
+      class="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-default bg-[var(--surface-solid)] px-3.5 py-2 text-[0.7rem] font-bold text-soft shadow-card transition hover:-translate-y-0.5 hover:text-accent animate-pop"
+      (click)="scrollToBottom()"
+    >
+      <svg lucideArrowDown [size]="14"></svg>
+      Jump to latest
+    </button>
+  }
+</div>

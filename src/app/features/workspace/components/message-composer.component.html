@@ -1,0 +1,180 @@
+<div
+  class="relative px-3 pb-3 pt-1 sm:px-5 sm:pb-4"
+  [class.composer--compact]="compact()"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  @if (dragging()) {
+    <div class="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-2xl border-2 border-dashed border-[rgba(var(--accent-rgb),0.6)] bg-accent-soft">
+      <p class="text-[0.75rem] font-bold text-accent">Drop files to attach</p>
+    </div>
+  }
+
+  @if (attachments().length || uploading()) {
+    <div class="mb-1.5 flex flex-wrap items-center gap-1.5">
+      @for (attachment of attachments(); track attachment.id) {
+        <div class="group/att relative flex max-w-[15rem] items-center gap-2 rounded-xl border border-default bg-[var(--surface-2)] p-1.5 pr-7">
+          @if (attachment.type.startsWith('image/')) {
+            <img class="h-9 w-9 shrink-0 rounded-lg object-cover" [src]="attachment.url" [alt]="attachment.name" />
+          } @else {
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+              <svg lucideFile [size]="15"></svg>
+            </span>
+          }
+          <span class="min-w-0">
+            <span class="block truncate text-[0.68rem] font-semibold text-soft">{{ attachment.name }}</span>
+            <span class="text-[0.58rem] text-muted">{{ attachment.size | fileSize }}</span>
+          </span>
+          <button
+            type="button"
+            class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-md text-muted transition hover:bg-[var(--surface-3)] hover:text-rose-500"
+            [attr.aria-label]="'Remove ' + attachment.name"
+            (click)="removeAttachment(attachment.id)"
+          >
+            <svg lucideX [size]="11"></svg>
+          </button>
+        </div>
+      }
+      @if (uploading()) {
+        <div class="flex items-center gap-2 rounded-xl border border-default bg-[var(--surface-2)] px-2.5 py-2 text-[0.66rem] font-medium text-muted">
+          <svg lucideLoaderCircle class="animate-spin text-accent" [size]="14"></svg>
+          Uploading…
+        </div>
+      }
+    </div>
+  }
+
+  @if (mentionOpen()) {
+    <div class="glass-strong absolute bottom-full left-3 z-40 mb-2 w-64 overflow-hidden rounded-xl animate-pop sm:left-5" role="listbox" aria-label="Mention a teammate">
+      <p class="border-b border-default px-3 py-1.5 text-[0.58rem] font-bold uppercase tracking-[0.16em] text-muted">
+        Mention a teammate
+      </p>
+      <div class="max-h-56 overflow-y-auto p-1">
+        @for (member of mentionResults(); track member.id; let index = $index) {
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition"
+            [class.bg-accent-soft]="mentionIndex() === index"
+            role="option"
+            [attr.aria-selected]="mentionIndex() === index"
+            (mousedown)="$event.preventDefault()"
+            (click)="insertMention(member)"
+          >
+            <app-user-avatar [profile]="member" [size]="24" />
+            <span class="min-w-0 flex-1 truncate text-[0.72rem] font-semibold text-soft">{{ member.display_name }}</span>
+            <span class="shrink-0 text-[0.6rem] text-muted">@{{ member.handle }}</span>
+          </button>
+        } @empty {
+          <p class="px-2 py-3 text-center text-[0.68rem] text-muted">No teammates found.</p>
+        }
+      </div>
+    </div>
+  }
+
+  @if (emojiOpen()) {
+    <div class="absolute bottom-full right-3 z-40 mb-2 animate-pop sm:right-5">
+      <app-emoji-picker [closeOnPick]="false" (picked)="insertEmoji($event)" (closed)="dismissEmoji()" />
+    </div>
+  }
+
+  <div
+    class="glass group/composer relative rounded-2xl border border-default shadow-soft transition focus-within:border-[rgba(var(--accent-rgb),0.45)] focus-within:shadow-[0_0_0_4px_rgba(var(--accent-rgb),0.08),var(--shadow-soft)]"
+  >
+    <div class="flex items-end gap-1 p-1.5">
+      <button
+        type="button"
+        class="icon-btn mb-0.5 h-8 w-8 shrink-0"
+        aria-label="Attach files"
+        title="Attach files"
+        (click)="openFilePicker()"
+      >
+        <svg lucidePaperclip [size]="16"></svg>
+      </button>
+
+      <textarea
+        #composer
+        class="max-h-[220px] min-h-[2.25rem] flex-1 resize-none bg-transparent px-1 py-2 text-[0.85rem] leading-6 text-soft outline-none placeholder:text-muted-2"
+        rows="1"
+        [placeholder]="placeholder()"
+        [attr.aria-label]="placeholder()"
+        [value]="text()"
+        (input)="onInput($event)"
+        (keydown)="onKeydown($event)"
+        (paste)="onPaste($event)"
+      ></textarea>
+
+      <button
+        type="button"
+        class="icon-btn mb-0.5 h-8 w-8 shrink-0"
+        aria-label="Insert emoji"
+        title="Insert emoji"
+        (pointerdown)="$event.stopPropagation()"
+        (click)="toggleEmoji($event)"
+      >
+        <svg lucideSmile [size]="16"></svg>
+      </button>
+
+      <button
+        type="button"
+        class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
+        style="background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 58%, var(--accent-2)))"
+        [disabled]="!canSend() || uploading()"
+        [attr.aria-label]="mode() === 'thread' ? 'Reply in thread' : 'Send message'"
+        (click)="send()"
+      >
+        <svg lucideSend [size]="15"></svg>
+      </button>
+    </div>
+
+    @if (mode() === 'channel' && !compact()) {
+      <div class="flex items-center gap-0.5 border-t border-default px-1.5 py-1">
+        <button type="button" class="format-btn" title="Bold" aria-label="Bold" (click)="format('**')">
+          <svg lucideBold [size]="13"></svg>
+        </button>
+        <button type="button" class="format-btn" title="Italic" aria-label="Italic" (click)="format('_')">
+          <svg lucideItalic [size]="13"></svg>
+        </button>
+        <button type="button" class="format-btn" title="Strikethrough" aria-label="Strikethrough" (click)="format('~~')">
+          <span class="text-[0.72rem] font-bold line-through">S</span>
+        </button>
+        <button type="button" class="format-btn" title="Inline code" aria-label="Inline code" (click)="format('`')">
+          <svg lucideCode [size]="13"></svg>
+        </button>
+        <button type="button" class="format-btn" title="Code block" aria-label="Code block" (click)="insertCodeBlock()">
+          <span class="font-mono text-[0.65rem] font-bold">&lt;/&gt;</span>
+        </button>
+        <button type="button" class="format-btn" title="Link" aria-label="Insert link" (click)="insertLink()">
+          <svg lucideLink [size]="13"></svg>
+        </button>
+        <button type="button" class="format-btn" title="Bulleted list" aria-label="Bulleted list" (click)="format('\n- ', '')">
+          <svg lucideList [size]="13"></svg>
+        </button>
+        <button type="button" class="format-btn" title="Quote" aria-label="Quote" (click)="format('\n> ', '')">
+          <svg lucideQuote [size]="13"></svg>
+        </button>
+        <button type="button" class="format-btn" title="Mention a teammate" aria-label="Mention a teammate" (click)="openMentionPicker()">
+          <svg lucideAtSign [size]="13"></svg>
+        </button>
+
+        <span class="ml-auto hidden items-center gap-1 pr-1 text-[0.58rem] text-muted-2 sm:flex">
+          <kbd class="rounded border border-default bg-[var(--surface-2)] px-1 py-px font-mono text-[0.55rem]">Enter</kbd>
+          send
+          <span class="mx-0.5 text-[var(--border-strong)]">·</span>
+          <kbd class="rounded border border-default bg-[var(--surface-2)] px-1 py-px font-mono text-[0.55rem]">Shift+Enter</kbd>
+          newline
+        </span>
+      </div>
+    }
+  </div>
+
+  <input
+    #fileInput
+    class="hidden"
+    type="file"
+    multiple
+    aria-hidden="true"
+    tabindex="-1"
+    (change)="onFiles($event)"
+  />
+</div>

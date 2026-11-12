@@ -1,0 +1,11 @@
+:host {
+  display: contents;
+}
+
+.command-item {
+  border: 1px solid transparent;
+}
+
+.command-item--active {
+  border-color: rgba(var(--accent-rgb), 0.24);
+}

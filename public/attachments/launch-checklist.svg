@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="80" y1="80" x2="1000" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#F472B6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(620 280) rotate(90) scale(400 500)">
+      <stop stop-color="#6366F1" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#6366F1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="760" rx="32" fill="url(#bg)"/>
+  <circle cx="620" cy="280" r="400" fill="url(#glow)"/>
+  <text x="72" y="92" font-family="'Segoe UI', system-ui, sans-serif" font-size="14" font-weight="600" fill="#67E8F9" letter-spacing="2">NOVA LAUNCH · T-24H</text>
+  <text x="72" y="148" font-family="'Segoe UI', system-ui, sans-serif" font-size="44" font-weight="700" fill="#F8FAFC" letter-spacing="-1.5">Launch checklist</text>
+  <text x="72" y="184" font-family="'Segoe UI', system-ui, sans-serif" font-size="16" fill="#94A3B8">Thursday · 10:00 · All systems go</text>
+  <g font-family="'Segoe UI', system-ui, sans-serif" font-size="19" fill="#E2E8F0">
+    <g transform="translate(72 250)">
+      <rect width="1056" height="64" rx="18" fill="#FFFFFF" fill-opacity="0.05" stroke="#FFFFFF" stroke-opacity="0.08"/>
+      <circle cx="34" cy="32" r="14" fill="#34D399"/>
+      <path d="M27 32 L32 37 L42 27" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="39">Demo environment seeded &amp; rehearsed</text>
+      <text x="1008" y="39" text-anchor="end" font-size="13" fill="#6EE7B7">READY</text>
+    </g>
+    <g transform="translate(72 330)">
+      <rect width="1056" height="64" rx="18" fill="#FFFFFF" fill-opacity="0.05" stroke="#FFFFFF" stroke-opacity="0.08"/>
+      <circle cx="34" cy="32" r="14" fill="#34D399"/>
+      <path d="M27 32 L32 37 L42 27" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="39">Rollback path tested with the on-call rota</text>
+      <text x="1008" y="39" text-anchor="end" font-size="13" fill="#6EE7B7">READY</text>
+    </g>
+    <g transform="translate(72 410)">
+      <rect width="1056" height="64" rx="18" fill="#FFFFFF" fill-opacity="0.05" stroke="#FFFFFF" stroke-opacity="0.08"/>
+      <circle cx="34" cy="32" r="14" fill="#34D399"/>
+      <path d="M27 32 L32 37 L42 27" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="39">Assets compressed · 8MB → 1.2MB</text>
+      <text x="1008" y="39" text-anchor="end" font-size="13" fill="#6EE7B7">READY</text>
+    </g>
+    <g transform="translate(72 490)">
+      <rect width="1056" height="64" rx="18" fill="#FFFFFF" fill-opacity="0.05" stroke="#FFFFFF" stroke-opacity="0.08"/>
+      <circle cx="34" cy="32" r="14" fill="#FBBF24"/>
+      <circle cx="34" cy="32" r="5" fill="#78350F"/>
+      <text x="66" y="39">Changelog + launch post final review</text>
+      <text x="1008" y="39" text-anchor="end" font-size="13" fill="#FDE68A">IN REVIEW</text>
+    </g>
+  </g>
+  <g transform="translate(72 612)">
+    <rect width="1056" height="80" rx="20" fill="url(#accent)" fill-opacity="0.12" stroke="#818CF8" stroke-opacity="0.28"/>
+    <text x="28" y="34" font-family="'Segoe UI', system-ui, sans-serif" font-size="14" fill="#C7D2FE">Next up</text>
+    <text x="28" y="58" font-family="'Segoe UI', system-ui, sans-serif" font-size="17" font-weight="600" fill="#F8FAFC">Rehearsal at 15:00 · Bring your best clicks.</text>
+    <circle cx="1000" cy="40" r="22" fill="#22D3EE" fill-opacity="0.18"/>
+    <path d="M992 40 L998 46 L1009 33" stroke="#67E8F9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

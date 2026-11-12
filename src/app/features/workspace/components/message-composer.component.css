@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+
+.composer--compact {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+.format-btn {
+  display: inline-flex;
+  height: 1.65rem;
+  width: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  color: var(--muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.format-btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}

@@ -1,0 +1,130 @@
+<div
+  class="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-black/55 px-3 py-[8vh] backdrop-blur-md"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Command palette"
+  (click)="close()"
+>
+  <div
+    class="glass-strong w-full max-w-xl overflow-hidden rounded-3xl animate-pop"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="flex items-center gap-2.5 border-b border-default px-4 py-3">
+      <svg lucideSearch class="shrink-0 text-accent" [size]="17"></svg>
+      <input
+        appFocusOnInit
+        class="w-full bg-transparent text-[0.95rem] font-medium text-soft outline-none placeholder:text-muted-2"
+        type="text"
+        placeholder="Search channels, people, or actions…"
+        aria-label="Search channels, people, or actions"
+        autocomplete="off"
+        spellcheck="false"
+        [value]="query()"
+        (input)="onQueryInput($event)"
+        (keydown)="onKeydown($event)"
+      />
+      <kbd class="shrink-0 rounded-md border border-default bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold text-muted">
+        Esc
+      </kbd>
+    </div>
+
+    <div class="max-h-[min(60vh,26rem)] overflow-y-auto p-2">
+      @for (group of grouped(); track group.name) {
+        <p class="px-2 pb-1 pt-2 text-[0.55rem] font-bold uppercase tracking-[0.16em] text-muted">
+          {{ group.name }}
+        </p>
+        @for (entry of group.items; track entry.id) {
+          <button
+            type="button"
+            class="command-item w-full text-left"
+            [class.command-item--active]="isActive(entry)"
+            [attr.aria-label]="entry.label + ' — ' + entry.hint"
+            (mouseenter)="hover(indexOf(entry))"
+            (click)="run(entry)"
+          >
+            @if (entry.kind === 'channel' || entry.kind === 'person') {
+              @if (entry.icon === 'dm') {
+                <app-user-avatar [profile]="entry.profile" [size]="28" />
+              } @else {
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-muted">
+                  @if (entry.icon === 'lock') {
+                    <svg lucideLock [size]="13"></svg>
+                  } @else {
+                    <svg lucideHash [size]="13"></svg>
+                  }
+                </span>
+              }
+            } @else {
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-muted">
+                @switch (entry.icon) {
+                  @case ('create-channel') {
+                    <svg lucidePlus [size]="14"></svg>
+                  }
+                  @case ('create-workspace') {
+                    <svg lucideUserRound [size]="14"></svg>
+                  }
+                  @case ('activity') {
+                    <svg lucideActivity [size]="14"></svg>
+                  }
+                  @case ('settings') {
+                    <svg lucideSettings [size]="14"></svg>
+                  }
+                  @case ('theme') {
+                    @if (theme.theme() === 'dark') {
+                      <svg lucideSun [size]="14"></svg>
+                    } @else {
+                      <svg lucideMoon [size]="14"></svg>
+                    }
+                  }
+                  @default {
+                    <svg lucideMessageSquare [size]="14"></svg>
+                  }
+                }
+              </span>
+            }
+
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-[0.78rem] font-bold text-soft">{{ entry.label }}</span>
+              <span class="block truncate text-[0.62rem] text-muted">{{ entry.hint }}</span>
+            </span>
+
+            @if (isActive(entry)) {
+              <svg lucideArrowRight class="shrink-0 text-accent" [size]="14"></svg>
+            } @else {
+              <span class="hidden shrink-0 text-[0.56rem] font-semibold uppercase tracking-wider text-muted-2 sm:inline">
+                {{ entry.kind === 'action' ? 'Run' : 'Go' }}
+              </span>
+            }
+          </button>
+        }
+      } @empty {
+        <div class="flex flex-col items-center px-4 py-10 text-center">
+          <span class="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+            <svg lucideCommand [size]="18"></svg>
+          </span>
+          <p class="text-[0.82rem] font-bold text-soft">No results</p>
+          <p class="mt-1 max-w-[15rem] text-[0.68rem] leading-4 text-muted">
+            Try a channel name, a teammate's handle, or an action like “create”.
+          </p>
+        </div>
+      }
+    </div>
+
+    <div class="flex items-center gap-3 border-t border-default px-4 py-2 text-[0.58rem] text-muted-2">
+      <span class="inline-flex items-center gap-1">
+        <kbd class="rounded border border-default bg-[var(--surface-2)] px-1 font-mono text-[0.55rem]">↑</kbd>
+        <kbd class="rounded border border-default bg-[var(--surface-2)] px-1 font-mono text-[0.55rem]">↓</kbd>
+        navigate
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <kbd class="rounded border border-default bg-[var(--surface-2)] px-1 font-mono text-[0.55rem]">↵</kbd>
+        select
+      </span>
+      <span class="ml-auto inline-flex items-center gap-1 font-semibold">
+        <svg lucideCommand [size]="10"></svg>
+        <span>K</span>
+        to open anywhere
+      </span>
+    </div>
+  </div>
+</div>

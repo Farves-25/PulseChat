@@ -1,12 +1,14 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ToastsComponent } from './shared/components/toasts.component';
 
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
+  imports: [RouterOutlet, ToastsComponent],
+  template: `
+    <router-outlet />
+    <app-toasts />
+  `,
   styleUrl: './app.css',
-  templateUrl: './app.html',
 })
-export class App {
-  protected readonly title = signal('PulseChat');
-}
+export class App {}
