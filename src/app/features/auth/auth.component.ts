@@ -221,8 +221,11 @@ export class AuthComponent {
     this.submitting.set(true);
     try {
       await this.auth.updatePassword(password);
-      this.toast.success('Password updated', 'Your new password is set. Welcome to PulseChat!');
-      await this.router.navigate(['/app']);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      this.toast.success('Password updated', 'Welcome back to PulseChat!');
+      await this.router.navigate(['/app'], { replaceUrl: true });
     } catch (error) {
       this.error.set(this.auth.friendlyError(this.messageOf(error)));
     } finally {

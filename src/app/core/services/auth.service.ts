@@ -143,11 +143,22 @@ export class AuthService {
       );
     }
 
-    const { error } = await this.supabase.client.auth.updateUser({
+    const { data, error } = await this.supabase.client.auth.updateUser({
       password: newPassword,
     });
     if (error) throw error;
+
+    const { data: sessionData } = await this.supabase.client.auth.getSession();
+    const session = sessionData.session;
+    this.session.set(session);
+    this.mode.set('supabase');
+    this.demo.disable();
     this.isPasswordRecovery.set(false);
+
+    const user = data.user ?? session?.user;
+    if (user) {
+      await this.loadSupabaseProfile(user.id);
+    }
   }
 
   startDemo(): void {
