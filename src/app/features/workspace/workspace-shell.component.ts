@@ -20,8 +20,12 @@ import {
   LucideZap,
 } from '@lucide/angular';
 import { Channel, Workspace } from '../../core/models';
+import { CallService } from '../../core/services/call.service';
 import { ChatStateService } from '../../core/services/chat-state.service';
 import { LogoMarkComponent } from '../../shared/components/logo-mark.component';
+import { CallFloatingWidgetComponent } from '../call/call-floating-widget.component';
+import { CallStageComponent } from '../call/call-stage.component';
+import { IncomingCallModalComponent } from '../call/incoming-call-modal.component';
 import { ChannelSidebarComponent } from './components/channel-sidebar.component';
 import { ChatHeaderComponent } from './components/chat-header.component';
 import { CommandPaletteComponent } from './components/command-palette.component';
@@ -49,6 +53,9 @@ import { WorkspaceRailComponent } from './components/workspace-rail.component';
     CreateChannelDialogComponent,
     CreateWorkspaceDialogComponent,
     ProfileSettingsComponent,
+    CallStageComponent,
+    CallFloatingWidgetComponent,
+    IncomingCallModalComponent,
     LucideArrowRight,
     LucideHash,
     LucideLoaderCircle,
@@ -66,6 +73,7 @@ import { WorkspaceRailComponent } from './components/workspace-rail.component';
 })
 export class WorkspaceShellComponent {
   protected readonly state = inject(ChatStateService);
+  protected readonly call = inject(CallService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);

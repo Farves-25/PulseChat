@@ -17,10 +17,12 @@ import {
   LucideHash,
   LucideLock,
   LucideMessageSquare,
+  LucideRadio,
   LucideSparkles,
   LucideUsers,
 } from '@lucide/angular';
 import { Message } from '../../../core/models';
+import { CallService } from '../../../core/services/call.service';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { formatDayDivider, isSameDay, minutesBetween } from '../../../shared/utils/time';
 import { MessageItemComponent } from './message-item.component';
@@ -41,12 +43,14 @@ type MessageRow =
     LucideMessageSquare,
     LucideSparkles,
     LucideUsers,
+    LucideRadio,
   ],
   templateUrl: './message-list.component.html',
   styleUrl: './message-list.component.css',
 })
 export class MessageListComponent {
   protected readonly state = inject(ChatStateService);
+  protected readonly call = inject(CallService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly viewport = viewChild(CdkVirtualScrollViewport);
 
@@ -86,6 +90,16 @@ export class MessageListComponent {
 
   protected readonly channel = this.state.activeChannel;
   protected readonly isDm = computed(() => this.channel()?.is_dm ?? false);
+  protected readonly activeHuddle = computed(() => {
+    const id = this.channel()?.id;
+    return id ? this.call.channelHuddles().get(id) ?? null : null;
+  });
+
+  protected joinHuddle(): void {
+    const chan = this.channel();
+    if (chan) void this.call.joinHuddle(chan.id, chan.name, chan.workspace_id, 'video');
+  }
+
   protected readonly channelLabel = computed(() =>
     this.isDm() ? this.state.activeChannelName() : `#${this.channel()?.name ?? ''}`,
   );

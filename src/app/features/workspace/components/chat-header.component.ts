@@ -6,13 +6,16 @@ import {
   LucideLock,
   LucideMenu,
   LucideMoreHorizontal,
+  LucidePhone,
   LucidePin,
   LucideSearch,
   LucideStar,
   LucideUsers,
+  LucideVideo,
 } from '@lucide/angular';
 import { PanelKind } from '../../../core/models';
 import { AuthService } from '../../../core/services/auth.service';
+import { CallService } from '../../../core/services/call.service';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
@@ -33,6 +36,8 @@ import { UserAvatarComponent } from '../../../shared/components/user-avatar.comp
     LucideSearch,
     LucideStar,
     LucideUsers,
+    LucidePhone,
+    LucideVideo,
   ],
   templateUrl: './chat-header.component.html',
   styleUrl: './chat-header.component.css',
@@ -42,6 +47,7 @@ export class ChatHeaderComponent {
 
   protected readonly state = inject(ChatStateService);
   protected readonly auth = inject(AuthService);
+  protected readonly call = inject(CallService);
   private readonly toast = inject(ToastService);
 
   protected readonly editingTopic = signal(false);
@@ -63,6 +69,26 @@ export class ChatHeaderComponent {
   protected readonly members = this.state.activeMembers;
   protected readonly memberCount = computed(() => this.members().length);
   protected readonly presence = computed(() => this.dmProfile()?.presence ?? 'offline');
+
+  protected readonly channelHuddle = computed(() => {
+    const id = this.channel()?.id;
+    return id ? this.call.channelHuddles().get(id) ?? null : null;
+  });
+
+  protected startVoiceCall(): void {
+    const chan = this.channel();
+    if (chan) void this.call.startCall(chan, 'audio');
+  }
+
+  protected startVideoCall(): void {
+    const chan = this.channel();
+    if (chan) void this.call.startCall(chan, 'video');
+  }
+
+  protected joinHuddle(): void {
+    const chan = this.channel();
+    if (chan) void this.call.joinHuddle(chan.id, chan.name, chan.workspace_id, 'video');
+  }
 
   protected startTopicEdit(): void {
     if (this.isDm() || !this.channel()) return;

@@ -1,0 +1,276 @@
+@let callInfo = activeCall();
+
+<div class="call-stage fixed inset-0 z-[200] flex flex-col overflow-hidden bg-[#07080f] text-white">
+  <!-- Ambient backdrop glows -->
+  <div class="pointer-events-none absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-accent/15 blur-[120px]"></div>
+  <div class="pointer-events-none absolute -bottom-40 right-1/4 h-96 w-96 rounded-full bg-accent-2/15 blur-[120px]"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="relative z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 backdrop-blur-xl sm:px-6">
+    <!-- Left: Room & Live details -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-2.5 py-1 text-[0.68rem] font-bold tracking-wider text-emerald-400">
+        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>LIVE</span>
+      </div>
+
+      <div class="flex flex-col">
+        <h2 class="text-sm font-extrabold tracking-tight text-white sm:text-base">
+          {{ callInfo?.isDm ? callInfo?.channelName : '#' + callInfo?.channelName }}
+        </h2>
+        <div class="flex items-center gap-2 text-[0.7rem] text-white/60">
+          <span>{{ formattedDuration() }}</span>
+          <span>•</span>
+          <span>{{ participants().length }} {{ participants().length === 1 ? 'member' : 'members' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Header actions -->
+    <div class="flex items-center gap-2">
+      <!-- Layout toggle button -->
+      <button
+        type="button"
+        class="flex h-9 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+        [title]="layout() === 'grid' ? 'Switch to Spotlight View' : 'Switch to Grid View'"
+        (click)="toggleLayout()"
+      >
+        <svg lucideGrid [size]="15"></svg>
+        <span class="hidden sm:inline">{{ layout() === 'grid' ? 'Spotlight' : 'Grid' }}</span>
+      </button>
+
+      <!-- Fullscreen button -->
+      <button
+        type="button"
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
+        [title]="isFullscreen() ? 'Exit Fullscreen' : 'Enter Fullscreen'"
+        (click)="toggleFullscreen()"
+      >
+        <svg lucideMaximize2 [size]="16"></svg>
+      </button>
+
+      <!-- Minimize to Picture-in-Picture button -->
+      <button
+        type="button"
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
+        title="Minimize to Picture-in-Picture"
+        (click)="call.toggleMinimize()"
+      >
+        <svg lucideMinimize2 [size]="16"></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Call Stage Content -->
+  <div class="relative flex min-h-0 flex-1 overflow-hidden p-3 sm:p-5">
+    <!-- Spotlight Layout -->
+    @if (layout() === 'spotlight' && spotlight(); as spot) {
+      <div class="flex h-full w-full flex-col gap-3">
+        <!-- Main Spotlight Frame -->
+        <div class="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
+          <app-call-participant-tile
+            [participant]="spot"
+            [isSpotlight]="true"
+            [isPinned]="call.pinnedParticipantId() === spot.id"
+            (pin)="call.pinParticipant(spot.id)"
+          />
+        </div>
+
+        <!-- Filmstrip bar of other participants -->
+        @if (otherParticipants().length > 0) {
+          <div class="flex h-28 shrink-0 gap-3 overflow-x-auto pb-1 sm:h-32">
+            @for (other of otherParticipants(); track other.id) {
+              <div class="aspect-video h-full shrink-0 overflow-hidden rounded-xl border border-white/10">
+                <app-call-participant-tile
+                  [participant]="other"
+                  [isSpotlight]="false"
+                  [isPinned]="call.pinnedParticipantId() === other.id"
+                  (pin)="call.pinParticipant(other.id)"
+                />
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <!-- Grid Layout -->
+      <div
+        class="grid h-full w-full gap-3 transition-all duration-300"
+        [class]="gridColumnsClass()"
+      >
+        @for (p of participants(); track p.id) {
+          <div class="relative h-full w-full min-h-0 min-w-0">
+            <app-call-participant-tile
+              [participant]="p"
+              [isSpotlight]="false"
+              [isPinned]="call.pinnedParticipantId() === p.id"
+              (pin)="call.pinParticipant(p.id)"
+            />
+          </div>
+        }
+      </div>
+    }
+
+    <!-- In-Call Participants Roster Sidebar -->
+    @if (showParticipantsList()) {
+      <aside class="absolute inset-y-0 right-0 z-30 flex w-72 flex-col border-l border-white/10 bg-[#0d0e19]/95 p-4 backdrop-blur-2xl animate-slide-right sm:w-80">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+          <div class="flex items-center gap-2">
+            <svg lucideUsers [size]="16" class="text-accent"></svg>
+            <h3 class="text-sm font-bold text-white">Participants ({{ participants().length }})</h3>
+          </div>
+          <button
+            type="button"
+            class="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white"
+            (click)="showParticipantsList.set(false)"
+          >
+            <svg lucideX [size]="15"></svg>
+          </button>
+        </div>
+
+        <div class="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
+          @for (member of participants(); track member.id) {
+            <div class="flex items-center justify-between rounded-xl bg-white/5 p-2.5 transition hover:bg-white/10">
+              <div class="flex min-w-0 items-center gap-2.5">
+                <app-user-avatar
+                  [profile]="{
+                    id: member.id,
+                    display_name: member.displayName,
+                    handle: member.handle,
+                    avatar_url: member.avatarUrl,
+                    status_message: null,
+                    presence: 'online'
+                  }"
+                  [size]="32"
+                />
+                <div class="min-w-0">
+                  <div class="truncate text-xs font-semibold text-white">
+                    {{ member.displayName }}
+                    @if (member.isLocal) {
+                      <span class="text-[0.65rem] text-accent">(You)</span>
+                    }
+                  </div>
+                  <div class="text-[0.65rem] text-white/50">&#64;{{ member.handle }}</div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1">
+                @if (member.audioMuted) {
+                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500/20 text-rose-400" title="Muted">
+                    <svg lucideMicOff [size]="11"></svg>
+                  </span>
+                } @else {
+                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" title="Mic active">
+                    <svg lucideMic [size]="11"></svg>
+                  </span>
+                }
+
+                @if (member.videoMuted) {
+                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-white/50" title="Camera off">
+                    <svg lucideVideoOff [size]="11"></svg>
+                  </span>
+                } @else {
+                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-accent" title="Camera on">
+                    <svg lucideVideo [size]="11"></svg>
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="btn-primary mt-3 w-full py-2 text-xs"
+          (click)="copyInviteLink()"
+        >
+          <svg lucideSparkles [size]="14"></svg>
+          Copy Room Invite Link
+        </button>
+      </aside>
+    }
+  </div>
+
+  <!-- Bottom Floating Capsule Control Bar -->
+  <footer class="relative z-20 flex h-20 shrink-0 items-center justify-center border-t border-white/10 bg-black/60 px-4 backdrop-blur-2xl">
+    <div class="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#121422]/90 p-2 shadow-2xl backdrop-blur-md sm:gap-3">
+      <!-- Microphone Toggle -->
+      <button
+        type="button"
+        class="control-btn"
+        [class.control-btn--active]="!call.isMicMuted()"
+        [class.control-btn--danger]="call.isMicMuted()"
+        [attr.aria-label]="call.isMicMuted() ? 'Unmute microphone (Press M)' : 'Mute microphone (Press M)'"
+        [title]="call.isMicMuted() ? 'Unmute (M)' : 'Mute (M)'"
+        (click)="call.toggleMicrophone()"
+      >
+        @if (call.isMicMuted()) {
+          <svg lucideMicOff [size]="18"></svg>
+        } @else {
+          <svg lucideMic [size]="18"></svg>
+        }
+      </button>
+
+      <!-- Camera Toggle -->
+      <button
+        type="button"
+        class="control-btn"
+        [class.control-btn--active]="!call.isCameraMuted()"
+        [class.control-btn--danger]="call.isCameraMuted()"
+        [attr.aria-label]="call.isCameraMuted() ? 'Turn camera on (Press V)' : 'Turn camera off (Press V)'"
+        [title]="call.isCameraMuted() ? 'Start Video (V)' : 'Stop Video (V)'"
+        (click)="call.toggleCamera()"
+      >
+        @if (call.isCameraMuted()) {
+          <svg lucideVideoOff [size]="18"></svg>
+        } @else {
+          <svg lucideVideo [size]="18"></svg>
+        }
+      </button>
+
+      <!-- Screen Share Toggle -->
+      <button
+        type="button"
+        class="control-btn"
+        [class.control-btn--screenshare]="call.isScreenSharing()"
+        [attr.aria-label]="call.isScreenSharing() ? 'Stop sharing screen (Press S)' : 'Share screen (Press S)'"
+        [title]="call.isScreenSharing() ? 'Stop Sharing (S)' : 'Share Screen (S)'"
+        (click)="call.toggleScreenShare()"
+      >
+        @if (call.isScreenSharing()) {
+          <svg lucideScreenShareOff [size]="18"></svg>
+        } @else {
+          <svg lucideScreenShare [size]="18"></svg>
+        }
+      </button>
+
+      <!-- Divider -->
+      <div class="h-6 w-px bg-white/10"></div>
+
+      <!-- Participant roster toggle button -->
+      <button
+        type="button"
+        class="control-btn relative"
+        [class.control-btn--active]="showParticipantsList()"
+        aria-label="Toggle participants list"
+        title="Participants"
+        (click)="showParticipantsList.update((v) => !v)"
+      >
+        <svg lucideUsers [size]="18"></svg>
+        <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[0.55rem] font-bold text-white">
+          {{ participants().length }}
+        </span>
+      </button>
+
+      <!-- Leave / End Call Button -->
+      <button
+        type="button"
+        class="flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 px-4 text-xs font-bold text-white shadow-lg transition hover:from-rose-500 hover:to-rose-600 active:scale-95"
+        (click)="call.leaveCall()"
+      >
+        <svg lucidePhoneOff [size]="16"></svg>
+        <span>{{ callInfo?.isDm ? 'End Call' : 'Leave Huddle' }}</span>
+      </button>
+    </div>
+  </footer>
+</div>

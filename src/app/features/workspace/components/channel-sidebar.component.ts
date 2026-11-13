@@ -10,6 +10,7 @@ import {
   LucideLogOut,
   LucideMoon,
   LucidePlus,
+  LucideRadio,
   LucideSearch,
   LucideSettings,
   LucideSun,
@@ -17,6 +18,7 @@ import {
 } from '@lucide/angular';
 import { Channel, PresenceState, Profile, Workspace } from '../../../core/models';
 import { AuthService } from '../../../core/services/auth.service';
+import { CallService } from '../../../core/services/call.service';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -48,6 +50,7 @@ interface PresenceOption {
     LucideSettings,
     LucideSun,
     LucideUserPlus,
+    LucideRadio,
   ],
   templateUrl: './channel-sidebar.component.html',
   styleUrl: './channel-sidebar.component.css',
@@ -61,6 +64,7 @@ export class ChannelSidebarComponent {
 
   protected readonly state = inject(ChatStateService);
   protected readonly auth = inject(AuthService);
+  protected readonly call = inject(CallService);
   protected readonly theme = inject(ThemeService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);

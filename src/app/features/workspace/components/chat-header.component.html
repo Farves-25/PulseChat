@@ -84,7 +84,46 @@
     }
   </div>
 
-  <div class="flex shrink-0 items-center gap-0.5">
+  <div class="flex shrink-0 items-center gap-1">
+    <!-- Active Channel Huddle Pill -->
+    @if (channelHuddle(); as huddle) {
+      <button
+        type="button"
+        class="mr-1 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-[0.68rem] font-bold text-emerald-600 transition hover:bg-emerald-500/25 dark:text-emerald-400"
+        (click)="joinHuddle()"
+      >
+        <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="hidden sm:inline">Huddle Active</span>
+        <span class="rounded bg-emerald-500/20 px-1 py-0.2 text-[0.58rem]">{{ huddle.participantCount }}</span>
+        <span class="text-xs font-extrabold">Join</span>
+      </button>
+    }
+
+    <!-- Call Action Buttons -->
+    <div class="flex items-center rounded-xl border border-default bg-[var(--surface-2)] p-0.5">
+      <!-- Voice Call -->
+      <button
+        type="button"
+        class="icon-btn h-7 w-7 text-soft hover:bg-[var(--surface-solid)] hover:text-accent"
+        aria-label="Start voice call"
+        [title]="isDm() ? 'Voice Call' : 'Start Voice Huddle'"
+        (click)="startVoiceCall()"
+      >
+        <svg lucidePhone [size]="14"></svg>
+      </button>
+
+      <!-- Video Call -->
+      <button
+        type="button"
+        class="icon-btn h-7 w-7 text-soft hover:bg-[var(--surface-solid)] hover:text-accent"
+        aria-label="Start video call"
+        [title]="isDm() ? 'Video Call' : 'Start Video Huddle'"
+        (click)="startVideoCall()"
+      >
+        <svg lucideVideo [size]="14"></svg>
+      </button>
+    </div>
+
     @if (!isDm() && members().length) {
       <div class="mr-1 hidden items-center md:flex">
         <div class="flex -space-x-1.5">
@@ -162,10 +201,22 @@
               <svg lucideUsers [size]="14"></svg>
               View member profile
             </button>
+            <button type="button" class="header-menu-item" (click)="startVoiceCall(); moreOpen.set(false)">
+              <svg lucidePhone [size]="14"></svg>
+              Start voice call
+            </button>
+            <button type="button" class="header-menu-item" (click)="startVideoCall(); moreOpen.set(false)">
+              <svg lucideVideo [size]="14"></svg>
+              Start video call
+            </button>
           } @else {
             <button type="button" class="header-menu-item" (click)="openPanel('members')">
               <svg lucideUsers [size]="14"></svg>
               Channel details
+            </button>
+            <button type="button" class="header-menu-item" (click)="startVideoCall(); moreOpen.set(false)">
+              <svg lucideVideo [size]="14"></svg>
+              Start channel huddle
             </button>
             <button type="button" class="header-menu-item" (click)="startTopicEdit(); moreOpen.set(false)">
               <span class="text-[0.8rem] font-bold">#</span>

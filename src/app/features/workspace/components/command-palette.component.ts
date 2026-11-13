@@ -13,8 +13,11 @@ import {
   LucideSettings,
   LucideSun,
   LucideUserRound,
+  LucidePhone,
+  LucideVideo,
 } from '@lucide/angular';
 import { Channel, Profile } from '../../../core/models';
+import { CallService } from '../../../core/services/call.service';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { FocusOnInitDirective } from '../../../shared/directives/focus-on-init.directive';
@@ -29,7 +32,9 @@ type EntryIcon =
   | 'create-channel'
   | 'create-workspace'
   | 'settings'
-  | 'theme';
+  | 'theme'
+  | 'video'
+  | 'phone';
 
 interface PaletteEntry {
   id: string;
@@ -40,7 +45,7 @@ interface PaletteEntry {
   hint: string;
   channel?: Channel;
   profile?: Profile;
-  action?: 'channel' | 'workspace' | 'activity' | 'profile' | 'theme';
+  action?: 'channel' | 'workspace' | 'activity' | 'profile' | 'theme' | 'call-video' | 'call-audio';
 }
 
 @Component({
@@ -60,6 +65,8 @@ interface PaletteEntry {
     LucideSettings,
     LucideSun,
     LucideUserRound,
+    LucidePhone,
+    LucideVideo,
   ],
   templateUrl: './command-palette.component.html',
   styleUrl: './command-palette.component.css',
@@ -71,6 +78,7 @@ export class CommandPaletteComponent {
   readonly openProfile = output<void>();
 
   protected readonly state = inject(ChatStateService);
+  protected readonly call = inject(CallService);
   protected readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
 
@@ -140,6 +148,32 @@ export class CommandPaletteComponent {
       : [];
 
     const actions: PaletteEntry[] = [
+      ...(this.state.activeChannel()
+        ? [
+            {
+              id: 'action-video-call',
+              kind: 'action' as const,
+              icon: 'video' as const,
+              group: 'Calls & Huddles',
+              label: this.state.activeChannel()?.is_dm
+                ? 'Start video call'
+                : 'Start channel video huddle',
+              hint: `Launch call in ${this.state.activeChannel()?.is_dm ? this.state.activeChannelName() : '#' + (this.state.activeChannel()?.name ?? '')}`,
+              action: 'call-video' as const,
+            },
+            {
+              id: 'action-voice-call',
+              kind: 'action' as const,
+              icon: 'phone' as const,
+              group: 'Calls & Huddles',
+              label: this.state.activeChannel()?.is_dm
+                ? 'Start voice call'
+                : 'Start channel voice huddle',
+              hint: `Audio call in ${this.state.activeChannel()?.is_dm ? this.state.activeChannelName() : '#' + (this.state.activeChannel()?.name ?? '')}`,
+              action: 'call-audio' as const,
+            },
+          ]
+        : []),
       {
         id: 'action-create-channel',
         kind: 'action',
@@ -286,6 +320,16 @@ export class CommandPaletteComponent {
           case 'theme':
             this.theme.toggle();
             return;
+          case 'call-video': {
+            const chan = this.state.activeChannel();
+            if (chan) void this.call.startCall(chan, 'video');
+            return;
+          }
+          case 'call-audio': {
+            const chan = this.state.activeChannel();
+            if (chan) void this.call.startCall(chan, 'audio');
+            return;
+          }
         }
       }
     }

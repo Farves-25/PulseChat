@@ -197,4 +197,16 @@
   @if (profileOpen()) {
     <app-profile-settings (closed)="profileOpen.set(false)" />
   }
+
+  @if (call.isInCall() && !call.isMinimized()) {
+    <app-call-stage />
+  }
+
+  @if (call.isInCall() && call.isMinimized()) {
+    <app-call-floating-widget />
+  }
+
+  @if (call.incomingCall()) {
+    <app-incoming-call-modal />
+  }
 </div>

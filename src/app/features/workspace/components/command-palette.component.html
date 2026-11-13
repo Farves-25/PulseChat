@@ -76,6 +76,12 @@
                       <svg lucideMoon [size]="14"></svg>
                     }
                   }
+                  @case ('video') {
+                    <svg lucideVideo [size]="14"></svg>
+                  }
+                  @case ('phone') {
+                    <svg lucidePhone [size]="14"></svg>
+                  }
                   @default {
                     <svg lucideMessageSquare [size]="14"></svg>
                   }
