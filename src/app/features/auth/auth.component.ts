@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -9,6 +9,7 @@ import {
 } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
+  LucideArrowLeft,
   LucideArrowRight,
   LucideArrowUpRight,
   LucideAtSign,
@@ -34,7 +35,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { LogoMarkComponent } from '../../shared/components/logo-mark.component';
 
-type AuthTab = 'signin' | 'signup';
+type AuthTab = 'signin' | 'signup' | 'forgot' | 'reset';
 
 function handleAvailability(control: AbstractControl): ValidationErrors | null {
   const value = String(control.value ?? '');
@@ -47,6 +48,7 @@ function handleAvailability(control: AbstractControl): ValidationErrors | null {
   imports: [
     ReactiveFormsModule,
     LogoMarkComponent,
+    LucideArrowLeft,
     LucideArrowRight,
     LucideArrowUpRight,
     LucideAtSign,
@@ -79,13 +81,17 @@ export class AuthComponent {
 
   protected readonly tab = signal<AuthTab>('signin');
   protected readonly showPassword = signal(false);
+  protected readonly showConfirmPassword = signal(false);
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly magicLinkSending = signal(false);
+  protected readonly forgotSending = signal(false);
   protected readonly submitted = signal(false);
 
   protected readonly isSignup = computed(() => this.tab() === 'signup');
+  protected readonly isForgot = computed(() => this.tab() === 'forgot');
+  protected readonly isReset = computed(() => this.tab() === 'reset');
 
   protected readonly signInForm = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -99,7 +105,33 @@ export class AuthComponent {
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
+  protected readonly forgotForm = this.fb.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+  });
+
+  protected readonly resetForm = this.fb.nonNullable.group({
+    password: ['', [Validators.required, Validators.minLength(6)]],
+    confirmPassword: ['', [Validators.required, Validators.minLength(6)]],
+  });
+
   constructor() {
+    // Check if user came from a password recovery link
+    if (typeof window !== 'undefined') {
+      const href = window.location.href;
+      const search = window.location.search;
+      if (href.includes('type=recovery') || search.includes('reset=true') || this.auth.isPasswordRecovery()) {
+        this.tab.set('reset');
+        this.notice.set('You are authenticated to set a new password.');
+      }
+    }
+
+    effect(() => {
+      if (this.auth.isPasswordRecovery()) {
+        this.tab.set('reset');
+        this.notice.set('You are authenticated to set a new password.');
+      }
+    });
+
     this.signUpForm.controls.displayName.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((name) => {
@@ -128,6 +160,16 @@ export class AuthComponent {
     this.notice.set(null);
     this.submitted.set(true);
 
+    if (this.isForgot()) {
+      await this.runForgotPassword();
+      return;
+    }
+
+    if (this.isReset()) {
+      await this.runResetPassword();
+      return;
+    }
+
     if (this.isSignup()) {
       if (this.signUpForm.invalid) {
         this.signUpForm.markAllAsTouched();
@@ -142,6 +184,50 @@ export class AuthComponent {
       return;
     }
     await this.runSignIn();
+  }
+
+  protected async runForgotPassword(): Promise<void> {
+    const emailControl = this.forgotForm.controls.email;
+    if (this.forgotForm.invalid) {
+      emailControl.markAsTouched();
+      this.error.set('Please enter a valid email address.');
+      return;
+    }
+
+    this.submitting.set(true);
+    try {
+      const msg = await this.auth.sendPasswordReset(emailControl.value);
+      this.notice.set(msg);
+      this.toast.success('Reset email sent', 'Check your inbox (and Spam folder) for the reset link.');
+    } catch (error) {
+      this.error.set(this.auth.friendlyError(this.messageOf(error)));
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  protected async runResetPassword(): Promise<void> {
+    if (this.resetForm.invalid) {
+      this.resetForm.markAllAsTouched();
+      return;
+    }
+
+    const { password, confirmPassword } = this.resetForm.getRawValue();
+    if (password !== confirmPassword) {
+      this.error.set('Passwords do not match. Please verify and try again.');
+      return;
+    }
+
+    this.submitting.set(true);
+    try {
+      await this.auth.updatePassword(password);
+      this.toast.success('Password updated', 'Your new password is set. Welcome to PulseChat!');
+      await this.router.navigate(['/app']);
+    } catch (error) {
+      this.error.set(this.auth.friendlyError(this.messageOf(error)));
+    } finally {
+      this.submitting.set(false);
+    }
   }
 
   protected async sendMagicLink(): Promise<void> {
@@ -177,19 +263,27 @@ export class AuthComponent {
     this.showPassword.update((value) => !value);
   }
 
-  protected showError(form: 'signin' | 'signup', field: string): boolean {
+  protected showError(form: 'signin' | 'signup' | 'forgot' | 'reset', field: string): boolean {
     const control =
       form === 'signin'
         ? this.signInForm.get(field)
-        : this.signUpForm.get(field);
+        : form === 'signup'
+          ? this.signUpForm.get(field)
+          : form === 'forgot'
+            ? this.forgotForm.get(field)
+            : this.resetForm.get(field);
     return Boolean(control?.invalid && (control.touched || this.submitted()));
   }
 
-  protected errorFor(form: 'signin' | 'signup', field: string): string | null {
+  protected errorFor(form: 'signin' | 'signup' | 'forgot' | 'reset', field: string): string | null {
     const control =
       form === 'signin'
         ? this.signInForm.get(field)
-        : this.signUpForm.get(field);
+        : form === 'signup'
+          ? this.signUpForm.get(field)
+          : form === 'forgot'
+            ? this.forgotForm.get(field)
+            : this.resetForm.get(field);
     if (!control?.errors) return null;
     if (control.errors['required']) return 'This field is required.';
     if (control.errors['email']) return 'Enter a valid email address.';

@@ -20,6 +20,7 @@ export class AuthService {
   readonly profile = signal<Profile | null>(null);
   readonly loading = signal(true);
   readonly mode = signal<AuthMode>(null);
+  readonly isPasswordRecovery = signal(false);
   readonly ready: Promise<void>;
 
   readonly isAuthenticated = computed(() => this.profile() !== null && this.mode() !== null);
@@ -114,6 +115,39 @@ export class AuthService {
     });
     if (error) throw error;
     return 'Magic link sent — check your inbox.';
+  }
+
+  async sendPasswordReset(email: string): Promise<string> {
+    if (!this.supabase.client) {
+      if (this.isDemo()) {
+        return 'Demo mode: Password reset email simulated. Add Supabase keys to send real emails.';
+      }
+      throw new Error(
+        'Supabase is not configured. Add your credentials to .env, or explore the demo workspace.',
+      );
+    }
+
+    const redirectTo = `${window.location.origin}/auth?reset=true`;
+    const { error } = await this.supabase.client.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    });
+    if (error) throw error;
+    return 'Password reset link sent! Please check your inbox (and Spam folder).';
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    if (!this.supabase.client) {
+      if (this.isDemo()) return;
+      throw new Error(
+        'Supabase is not configured. Add your credentials to .env, or explore the demo workspace.',
+      );
+    }
+
+    const { error } = await this.supabase.client.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+    this.isPasswordRecovery.set(false);
   }
 
   startDemo(): void {
@@ -251,6 +285,9 @@ export class AuthService {
 
     this.supabase.client.auth.onAuthStateChange((event, session) => {
       this.session.set(session);
+      if (event === 'PASSWORD_RECOVERY') {
+        this.isPasswordRecovery.set(true);
+      }
       if (event === 'SIGNED_OUT' || !session?.user) {
         if (this.mode() === 'supabase') {
           this.profile.set(null);
