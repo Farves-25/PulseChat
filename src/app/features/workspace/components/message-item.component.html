@@ -1,128 +1,284 @@
 @let msg = message();
+@let mine = isOwn();
 
 <div
-  class="message-row group relative px-3 sm:px-5"
-  [class.pt-0.5]="grouped()"
-  [class.pt-2.5]="!grouped()"
+  class="message-row group relative px-3 py-1 sm:px-5"
   [class.message-row--mentioned]="mentionsMe()"
   [class.message-row--highlight]="highlighted()"
   [attr.data-message-id]="msg.id"
 >
-  <div class="flex gap-3">
-    <div class="w-9 shrink-0 pt-0.5">
-      @if (!grouped()) {
-        <app-user-avatar [profile]="profile()" [name]="displayName()" [size]="36" />
-      } @else {
-        <span class="hidden select-none pt-1.5 text-center text-[0.56rem] font-medium text-muted-2 group-hover:block">
-          {{ time() }}
-        </span>
-      }
-    </div>
+  <div class="flex items-end gap-2" [class.justify-end]="mine" [class.justify-start]="!mine">
+    <!-- For incoming message: Avatar on left -->
+    @if (!mine) {
+      <div class="w-8 shrink-0 pb-1">
+        @if (!grouped()) {
+          <app-user-avatar [profile]="profile()" [name]="displayName()" [size]="32" />
+        }
+      </div>
+    }
 
-    <div class="min-w-0 flex-1 pb-0.5">
-      @if (!grouped()) {
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span class="text-[0.83rem] font-bold tracking-tight text-soft">{{ displayName() }}</span>
+    <!-- For sent (mine) messages: Actions bar on the left of the bubble -->
+    @if (mine) {
+      <div
+        class="message-actions mb-1 shrink-0"
+        [class.message-actions--open]="menuOpen() || reactionOpen()"
+        appClickOutside
+        (clickOutside)="closeAll()"
+      >
+        <div class="relative">
+          <div class="flex items-center gap-0.5 rounded-xl border border-default bg-[var(--surface-solid)] p-0.5 shadow-soft">
+            <button
+              type="button"
+              class="icon-btn h-6 w-6 rounded-lg text-muted hover:text-soft"
+              aria-label="Add reaction"
+              (click)="toggleReactionPicker()"
+            >
+              <svg lucideSmile [size]="13"></svg>
+            </button>
+            @if (context() === 'channel') {
+              <button
+                type="button"
+                class="icon-btn h-6 w-6 rounded-lg text-muted hover:text-soft"
+                aria-label="Reply in thread"
+                (click)="openThread()"
+              >
+                <svg lucideReply [size]="13"></svg>
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-btn h-6 w-6 rounded-lg text-muted hover:text-soft"
+              aria-label="Message actions"
+              (click)="toggleMenu()"
+            >
+              <svg lucideMoreHorizontal [size]="13"></svg>
+            </button>
+          </div>
+
+          @if (reactionOpen()) {
+            <div class="absolute bottom-full left-0 z-40 mb-1.5 animate-pop">
+              <div class="glass-strong mb-1 flex items-center gap-0.5 rounded-xl p-1">
+                @for (emoji of quickReactions; track emoji) {
+                  <button
+                    type="button"
+                    class="flex h-7 w-7 items-center justify-center rounded-lg text-[0.9rem] transition hover:bg-[var(--surface-3)]"
+                    [attr.aria-label]="'React with ' + emoji"
+                    (click)="react(emoji)"
+                  >
+                    {{ emoji }}
+                  </button>
+                }
+              </div>
+              <app-emoji-picker (picked)="react($event)" (closed)="reactionOpen.set(false)" />
+            </div>
+          }
+
+          @if (menuOpen()) {
+            <div class="glass-strong absolute bottom-full left-0 z-40 mb-1.5 w-44 overflow-hidden rounded-xl p-1 shadow-lg animate-pop">
+              @if (!confirmDelete()) {
+                @if (context() === 'channel') {
+                  <button type="button" class="menu-item" (click)="openThread()">
+                    <svg lucideReply [size]="13"></svg>
+                    Reply in thread
+                  </button>
+                }
+                <button type="button" class="menu-item" (click)="togglePin()">
+                  <svg lucidePin [size]="13"></svg>
+                  {{ msg.is_pinned ? 'Unpin message' : 'Pin message' }}
+                </button>
+                <button type="button" class="menu-item" (click)="copyText()">
+                  <svg lucideCopy [size]="13"></svg>
+                  Copy text
+                </button>
+                <button type="button" class="menu-item" (click)="copyLink()">
+                  <svg lucideLink [size]="13"></svg>
+                  Copy link
+                </button>
+                <button type="button" class="menu-item" (click)="startEdit()">
+                  <svg lucidePencil [size]="13"></svg>
+                  Edit message
+                </button>
+                @if (canModerate()) {
+                  <span class="my-1 block h-px bg-[var(--border)]"></span>
+                  <button
+                    type="button"
+                    class="menu-item menu-item--danger"
+                    (click)="confirmDelete.set(true)"
+                  >
+                    <svg lucideTrash2 [size]="13"></svg>
+                    Delete message
+                  </button>
+                }
+              } @else {
+                <div class="p-2">
+                  <p class="text-[0.72rem] font-bold text-soft">Delete message?</p>
+                  <p class="mt-0.5 text-[0.62rem] leading-4 text-muted">This cannot be undone.</p>
+                  <div class="mt-2 flex gap-1.5">
+                    <button type="button" class="flex-1 rounded-lg bg-rose-500/90 px-2 py-1 text-[0.68rem] font-bold text-white transition hover:bg-rose-500" (click)="deleteMessage()">
+                      Delete
+                    </button>
+                    <button type="button" class="flex-1 rounded-lg border border-default px-2 py-1 text-[0.68rem] font-bold text-soft transition hover:bg-[var(--surface-3)]" (click)="confirmDelete.set(false)">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Bubble Column -->
+    <div
+      class="flex max-w-[85%] flex-col sm:max-w-[70%]"
+      [class.items-end]="mine"
+      [class.items-start]="!mine"
+    >
+      <!-- Sender Header for incoming messages -->
+      @if (!mine && !grouped()) {
+        <div class="mb-1 flex items-center gap-1.5 px-1">
+          <span class="text-[0.76rem] font-bold tracking-tight text-accent">{{ displayName() }}</span>
           @if (senderRole() === 'admin') {
-            <span class="rounded-md bg-accent-soft px-1.5 py-px text-[0.53rem] font-extrabold uppercase tracking-[0.1em] text-accent">
+            <span class="rounded bg-accent-soft px-1 py-px text-[0.5rem] font-bold uppercase tracking-wider text-accent">
               Admin
-            </span>
-          }
-          <span class="cursor-default text-[0.64rem] font-medium text-muted-2" [title]="fullDate()">{{ time() }}</span>
-          @if (msg.is_edited) {
-            <span class="text-[0.6rem] italic text-muted-2">(edited)</span>
-          }
-          @if (msg.is_pinned) {
-            <span class="inline-flex items-center gap-1 rounded-md bg-amber-500/12 px-1.5 py-px text-[0.53rem] font-bold uppercase tracking-[0.08em] text-amber-600 dark:text-amber-300">
-              <svg lucidePin [size]="9"></svg>
-              Pinned
             </span>
           }
         </div>
       }
 
       @if (editing()) {
-        <div class="mt-1 max-w-2xl">
+        <!-- Edit Mode -->
+        <div class="w-full min-w-[18rem] max-w-md rounded-2xl border border-[rgba(var(--accent-rgb),0.5)] bg-[var(--surface-solid)] p-2.5 shadow-lg">
           <textarea
-            class="field min-h-[3.25rem] w-full resize-none py-2 text-[0.84rem] leading-6"
+            class="field min-h-[3.25rem] w-full resize-none py-1.5 text-[0.84rem] leading-6"
             aria-label="Edit message"
             [value]="editText()"
             (input)="onEditInput($event)"
             (keydown)="onEditKeydown($event)"
             (focus)="onEditFocus($event)"
           ></textarea>
-          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <button type="button" class="btn-primary px-2.5 py-1.5 text-[0.7rem]" (click)="saveEdit()">
+          <div class="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+            <button type="button" class="btn-ghost px-2.5 py-1 text-[0.7rem]" (click)="cancelEdit()">
+              Cancel
+            </button>
+            <button type="button" class="btn-primary px-2.5 py-1 text-[0.7rem]" (click)="saveEdit()">
               <svg lucideCheck [size]="13"></svg>
               Save
             </button>
-            <button type="button" class="btn-ghost px-2.5 py-1.5 text-[0.7rem]" (click)="cancelEdit()">
-              Cancel
-            </button>
-            <span class="text-[0.6rem] text-muted-2">Enter to save · Esc to cancel</span>
           </div>
         </div>
       } @else {
-        @if (msg.content) {
+        <!-- The Message Bubble -->
+        <div
+          class="group/bubble relative overflow-hidden rounded-2xl shadow-sm transition"
+          [class.rounded-br-xs]="mine"
+          [class.rounded-bl-xs]="!mine"
+          [class.bg-[color-mix(in_oklab,var(--accent)_18%,var(--surface-2))]]="mine"
+          [class.border]="true"
+          [class.border-[rgba(var(--accent-rgb),0.35)]]="mine"
+          [class.text-white]="mine"
+          [class.bg-[var(--surface-2)]]="!mine"
+          [class.border-default]="!mine"
+          [class.text-soft]="!mine"
+          [class.p-2.5]="msg.content || fileAttachments().length"
+          [class.p-1]="!msg.content && (voiceAttachments().length || imageAttachments().length)"
+        >
+          <!-- Text Content -->
+          @if (msg.content) {
+            <div
+              class="prose-message px-1 text-[0.86rem] leading-relaxed"
+              (click)="onContentClick($event)"
+              [innerHTML]="msg.content | mentionParser: currentHandle()"
+            ></div>
+          }
+
+          <!-- Voice Messages -->
+          @if (voiceAttachments().length) {
+            <div class="flex flex-col gap-1.5" [class.mt-1.5]="msg.content">
+              @for (attachment of voiceAttachments(); track attachment.id) {
+                <app-voice-message-player [attachment]="attachment" [isMine]="mine" />
+              }
+            </div>
+          }
+
+          <!-- Image Attachments -->
+          @if (imageAttachments().length) {
+            <div class="flex flex-wrap gap-1.5" [class.mt-1.5]="msg.content">
+              @for (attachment of imageAttachments(); track attachment.id) {
+                <button
+                  type="button"
+                  class="group/img relative max-w-sm overflow-hidden rounded-xl border border-default bg-[var(--surface-2)] text-left transition hover:border-strong"
+                  [attr.aria-label]="'Preview image ' + attachment.name"
+                  (click)="openLightbox(attachment)"
+                >
+                  <img
+                    class="block max-h-60 w-full object-cover transition duration-300 group-hover/img:scale-[1.012]"
+                    [src]="attachment.url"
+                    [alt]="attachment.name"
+                    loading="lazy"
+                  />
+                  <span
+                    class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-2 pb-1 pt-6 text-[0.58rem] font-medium text-white opacity-0 transition group-hover/img:opacity-100"
+                  >
+                    <span class="truncate">{{ attachment.name }}</span>
+                    <span class="shrink-0">{{ attachment.size | fileSize }}</span>
+                  </span>
+                </button>
+              }
+            </div>
+          }
+
+          <!-- File Attachments -->
+          @if (fileAttachments().length) {
+            <div class="flex flex-wrap gap-1.5" [class.mt-1.5]="msg.content">
+              @for (attachment of fileAttachments(); track attachment.id) {
+                <a
+                  class="group/file flex w-full max-w-xs items-center gap-2 rounded-xl border border-default bg-[var(--surface-3)] p-2 transition hover:border-strong"
+                  [href]="attachment.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [attr.download]="attachment.name"
+                >
+                  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                    <svg lucideFile [size]="15"></svg>
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-[0.72rem] font-semibold text-soft">{{ attachment.name }}</span>
+                    <span class="text-[0.58rem] text-muted">{{ attachment.size | fileSize }}</span>
+                  </span>
+                  <svg lucideArrowUpRight class="shrink-0 text-muted-2 transition group-hover/file:text-accent" [size]="13"></svg>
+                </a>
+              }
+            </div>
+          }
+
+          <!-- Time & Status stamp inside bottom-right of bubble -->
           <div
-            class="prose-message mt-0.5"
-            (click)="onContentClick($event)"
-            [innerHTML]="msg.content | mentionParser: currentHandle()"
-          ></div>
-        }
-      }
-
-      @if (imageAttachments().length) {
-        <div class="mt-2 flex max-w-2xl flex-wrap gap-2">
-          @for (attachment of imageAttachments(); track attachment.id) {
-            <button
-              type="button"
-              class="group/img relative w-full max-w-sm overflow-hidden rounded-xl border border-default bg-[var(--surface-2)] text-left transition hover:border-strong"
-              [attr.aria-label]="'Preview image ' + attachment.name"
-              (click)="openLightbox(attachment)"
-            >
-              <img
-                class="block max-h-64 w-full object-cover transition duration-300 group-hover/img:scale-[1.012]"
-                [src]="attachment.url"
-                [alt]="attachment.name"
-                loading="lazy"
-              />
-              <span
-                class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-2.5 pb-1.5 pt-7 text-[0.6rem] font-medium text-white opacity-0 transition group-hover/img:opacity-100"
-              >
-                <span class="truncate">{{ attachment.name }}</span>
-                <span class="shrink-0">{{ attachment.size | fileSize }}</span>
-              </span>
-            </button>
-          }
+            class="mt-1 flex items-center justify-end gap-1 px-1 text-[0.62rem] leading-none text-muted"
+            [title]="fullDate()"
+          >
+            <span>{{ time() }}</span>
+            @if (msg.is_edited) {
+              <span class="text-[0.56rem] italic">(edited)</span>
+            }
+            @if (msg.is_pinned) {
+              <svg lucidePin [size]="9" class="text-amber-400"></svg>
+            }
+            @if (mine) {
+              @if (msg.pending) {
+                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]"></span>
+              } @else {
+                <svg lucideCheck [size]="11" class="text-accent"></svg>
+              }
+            }
+          </div>
         </div>
       }
 
-      @if (fileAttachments().length) {
-        <div class="mt-2 flex flex-wrap gap-2">
-          @for (attachment of fileAttachments(); track attachment.id) {
-            <a
-              class="group/file flex w-full max-w-xs items-center gap-2.5 rounded-xl border border-default bg-[var(--surface-2)] p-2.5 transition hover:border-strong hover:bg-[var(--surface-3)]"
-              [href]="attachment.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              [attr.download]="attachment.name"
-            >
-              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
-                <svg lucideFile [size]="16"></svg>
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-[0.73rem] font-semibold text-soft">{{ attachment.name }}</span>
-                <span class="text-[0.6rem] text-muted">{{ attachment.size | fileSize }}</span>
-              </span>
-              <svg lucideArrowUpRight class="shrink-0 text-muted-2 transition group-hover/file:text-accent" [size]="14"></svg>
-            </a>
-          }
-        </div>
-      }
-
+      <!-- Reactions -->
       @if (msg.reactions.length) {
-        <div class="mt-1.5 flex flex-wrap items-center gap-1">
+        <div class="mt-1 flex flex-wrap items-center gap-1" [class.justify-end]="mine">
           @for (reaction of msg.reactions; track reaction.emoji) {
             <button
               type="button"
@@ -132,149 +288,144 @@
               [attr.aria-label]="reaction.emoji + ' reaction, ' + reaction.count + ' total'"
               (click)="react(reaction.emoji)"
             >
-              <span class="text-[0.8rem] leading-none">{{ reaction.emoji }}</span>
-              <span class="text-[0.63rem] font-bold leading-none">{{ reaction.count }}</span>
+              <span class="text-[0.78rem] leading-none">{{ reaction.emoji }}</span>
+              <span class="text-[0.6rem] font-bold leading-none">{{ reaction.count }}</span>
             </button>
           }
         </div>
       }
 
+      <!-- Thread reply count -->
       @if (msg.reply_count > 0 && context() === 'channel') {
         <button
           type="button"
-          class="mt-1.5 -ml-1 flex items-center gap-2 rounded-lg px-1.5 py-1 transition hover:bg-[var(--surface-3)]"
+          class="mt-1 flex items-center gap-1.5 rounded-lg px-2 py-0.5 transition hover:bg-[var(--surface-3)]"
+          [class.self-end]="mine"
+          [class.self-start]="!mine"
           (click)="openThread()"
         >
-          <span class="flex h-5 w-5 items-center justify-center rounded-md bg-accent-soft text-accent">
-            <svg lucideMessageSquare [size]="11"></svg>
+          <span class="flex h-4 w-4 items-center justify-center rounded-md bg-accent-soft text-accent">
+            <svg lucideMessageSquare [size]="10"></svg>
           </span>
-          <span class="text-[0.68rem] font-bold text-accent">
+          <span class="text-[0.65rem] font-bold text-accent">
             {{ msg.reply_count }} {{ msg.reply_count === 1 ? 'reply' : 'replies' }}
           </span>
-          <span class="text-[0.6rem] text-muted">{{ lastReplyLabel() }}</span>
         </button>
-      }
-
-      @if (msg.pending) {
-        <p class="mt-1 inline-flex items-center gap-1.5 text-[0.6rem] font-medium text-muted-2">
-          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]"></span>
-          Sending…
-        </p>
       }
 
       @if (msg.failed) {
-        <div class="mt-1 flex items-center gap-2 text-[0.65rem] font-medium text-rose-500">
-          <span>Message failed to send.</span>
-          <button type="button" class="font-bold underline underline-offset-2" (click)="retry()">Retry</button>
+        <div class="mt-1 flex items-center gap-1.5 text-[0.64rem] font-medium text-rose-500">
+          <span>Failed to send.</span>
+          <button type="button" class="font-bold underline" (click)="retry()">Retry</button>
         </div>
       }
     </div>
-  </div>
 
-  <!-- Hover actions -->
-  <div class="absolute right-3 top-1 z-30 sm:right-5" appClickOutside (clickOutside)="closeAll()">
-    <div class="message-actions flex items-center gap-0.5 rounded-xl border border-default bg-[var(--surface-solid)] p-0.5 shadow-soft" [class.message-actions--open]="menuOpen() || reactionOpen()">
-      <button
-        type="button"
-        class="icon-btn h-7 w-7 rounded-lg"
-        aria-label="Add reaction"
-        (click)="toggleReactionPicker()"
+    <!-- For incoming messages: Action bar on right of bubble -->
+    @if (!mine) {
+      <div
+        class="message-actions mb-1 shrink-0"
+        [class.message-actions--open]="menuOpen() || reactionOpen()"
+        appClickOutside
+        (clickOutside)="closeAll()"
       >
-        <svg lucideSmile [size]="14"></svg>
-      </button>
-      @if (context() === 'channel') {
-        <button
-          type="button"
-          class="icon-btn h-7 w-7 rounded-lg"
-          aria-label="Reply in thread"
-          (click)="openThread()"
-        >
-          <svg lucideReply [size]="14"></svg>
-        </button>
-      }
-      <button
-        type="button"
-        class="icon-btn h-7 w-7 rounded-lg"
-        aria-label="Message actions"
-        [attr.aria-expanded]="menuOpen()"
-        (click)="toggleMenu()"
-      >
-        <svg lucideMoreHorizontal [size]="14"></svg>
-      </button>
-    </div>
-
-    @if (reactionOpen()) {
-      <div class="absolute right-0 top-full z-40 mt-1.5 animate-pop">
-        <div class="glass-strong mb-1.5 flex items-center gap-0.5 rounded-xl p-1">
-          @for (emoji of quickReactions; track emoji) {
+        <div class="relative">
+          <div class="flex items-center gap-0.5 rounded-xl border border-default bg-[var(--surface-solid)] p-0.5 shadow-soft">
             <button
               type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-[1rem] transition hover:bg-[var(--surface-3)]"
-              [attr.aria-label]="'React with ' + emoji"
-              (click)="react(emoji)"
+              class="icon-btn h-6 w-6 rounded-lg text-muted hover:text-soft"
+              aria-label="Add reaction"
+              (click)="toggleReactionPicker()"
             >
-              {{ emoji }}
+              <svg lucideSmile [size]="13"></svg>
             </button>
-          }
-        </div>
-        <app-emoji-picker (picked)="react($event)" (closed)="reactionOpen.set(false)" />
-      </div>
-    }
-
-    @if (menuOpen()) {
-      <div class="glass-strong absolute right-0 top-full z-40 mt-1.5 w-48 overflow-hidden rounded-xl p-1 animate-pop">
-        @if (!confirmDelete()) {
-          @if (context() === 'channel') {
-            <button type="button" class="menu-item" (click)="openThread()">
-              <svg lucideReply [size]="14"></svg>
-              Reply in thread
-            </button>
-          }
-          <button type="button" class="menu-item" (click)="togglePin()">
-            <svg lucidePin [size]="14"></svg>
-            {{ msg.is_pinned ? 'Unpin message' : 'Pin message' }}
-          </button>
-          <button type="button" class="menu-item" (click)="copyText()">
-            <svg lucideCopy [size]="14"></svg>
-            Copy text
-          </button>
-          <button type="button" class="menu-item" (click)="copyLink()">
-            <svg lucideLink [size]="14"></svg>
-            Copy link
-          </button>
-          @if (isOwn()) {
-            <button type="button" class="menu-item" (click)="startEdit()">
-              <svg lucidePencil [size]="14"></svg>
-              Edit message
-            </button>
-          }
-          @if (canModerate()) {
-            <span class="my-1 block h-px bg-[var(--border)]"></span>
+            @if (context() === 'channel') {
+              <button
+                type="button"
+                class="icon-btn h-6 w-6 rounded-lg text-muted hover:text-soft"
+                aria-label="Reply in thread"
+                (click)="openThread()"
+              >
+                <svg lucideReply [size]="13"></svg>
+              </button>
+            }
             <button
               type="button"
-              class="menu-item menu-item--danger"
-              (click)="confirmDelete.set(true)"
+              class="icon-btn h-6 w-6 rounded-lg text-muted hover:text-soft"
+              aria-label="Message actions"
+              (click)="toggleMenu()"
             >
-              <svg lucideTrash2 [size]="14"></svg>
-              Delete message
+              <svg lucideMoreHorizontal [size]="13"></svg>
             </button>
-          }
-        } @else {
-          <div class="p-2">
-            <p class="text-[0.72rem] font-bold text-soft">Delete this message?</p>
-            <p class="mt-0.5 text-[0.65rem] leading-4 text-muted">
-              {{ msg.reply_count > 0 ? 'Thread replies will be removed too.' : 'This cannot be undone.' }}
-            </p>
-            <div class="mt-2 flex gap-1.5">
-              <button type="button" class="flex-1 rounded-lg bg-rose-500/90 px-2 py-1.5 text-[0.68rem] font-bold text-white transition hover:bg-rose-500" (click)="deleteMessage()">
-                Delete
-              </button>
-              <button type="button" class="flex-1 rounded-lg border border-default px-2 py-1.5 text-[0.68rem] font-bold text-soft transition hover:bg-[var(--surface-3)]" (click)="confirmDelete.set(false)">
-                Cancel
-              </button>
-            </div>
           </div>
-        }
+
+          @if (reactionOpen()) {
+            <div class="absolute bottom-full right-0 z-40 mb-1.5 animate-pop">
+              <div class="glass-strong mb-1 flex items-center gap-0.5 rounded-xl p-1">
+                @for (emoji of quickReactions; track emoji) {
+                  <button
+                    type="button"
+                    class="flex h-7 w-7 items-center justify-center rounded-lg text-[0.9rem] transition hover:bg-[var(--surface-3)]"
+                    [attr.aria-label]="'React with ' + emoji"
+                    (click)="react(emoji)"
+                  >
+                    {{ emoji }}
+                  </button>
+                }
+              </div>
+              <app-emoji-picker (picked)="react($event)" (closed)="reactionOpen.set(false)" />
+            </div>
+          }
+
+          @if (menuOpen()) {
+            <div class="glass-strong absolute bottom-full right-0 z-40 mb-1.5 w-44 overflow-hidden rounded-xl p-1 shadow-lg animate-pop">
+              @if (!confirmDelete()) {
+                @if (context() === 'channel') {
+                  <button type="button" class="menu-item" (click)="openThread()">
+                    <svg lucideReply [size]="13"></svg>
+                    Reply in thread
+                  </button>
+                }
+                <button type="button" class="menu-item" (click)="togglePin()">
+                  <svg lucidePin [size]="13"></svg>
+                  {{ msg.is_pinned ? 'Unpin message' : 'Pin message' }}
+                </button>
+                <button type="button" class="menu-item" (click)="copyText()">
+                  <svg lucideCopy [size]="13"></svg>
+                  Copy text
+                </button>
+                <button type="button" class="menu-item" (click)="copyLink()">
+                  <svg lucideLink [size]="13"></svg>
+                  Copy link
+                </button>
+                @if (canModerate()) {
+                  <span class="my-1 block h-px bg-[var(--border)]"></span>
+                  <button
+                    type="button"
+                    class="menu-item menu-item--danger"
+                    (click)="confirmDelete.set(true)"
+                  >
+                    <svg lucideTrash2 [size]="13"></svg>
+                    Delete message
+                  </button>
+                }
+              } @else {
+                <div class="p-2">
+                  <p class="text-[0.72rem] font-bold text-soft">Delete message?</p>
+                  <p class="mt-0.5 text-[0.62rem] leading-4 text-muted">This cannot be undone.</p>
+                  <div class="mt-2 flex gap-1.5">
+                    <button type="button" class="flex-1 rounded-lg bg-rose-500/90 px-2 py-1 text-[0.68rem] font-bold text-white transition hover:bg-rose-500" (click)="deleteMessage()">
+                      Delete
+                    </button>
+                    <button type="button" class="flex-1 rounded-lg border border-default px-2 py-1 text-[0.68rem] font-bold text-soft transition hover:bg-[var(--surface-3)]" (click)="confirmDelete.set(false)">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
       </div>
     }
   </div>

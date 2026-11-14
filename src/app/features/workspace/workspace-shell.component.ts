@@ -33,6 +33,7 @@ import { CreateChannelDialogComponent } from './components/create-channel-dialog
 import { CreateWorkspaceDialogComponent } from './components/create-workspace-dialog.component';
 import { MessageComposerComponent } from './components/message-composer.component';
 import { MessageListComponent } from './components/message-list.component';
+import { NewChatDialogComponent } from './components/new-chat-dialog.component';
 import { ProfileSettingsComponent } from './components/profile-settings.component';
 import { SidePanelComponent } from './components/side-panel.component';
 import { ThreadDrawerComponent } from './components/thread-drawer.component';
@@ -52,6 +53,7 @@ import { WorkspaceRailComponent } from './components/workspace-rail.component';
     CommandPaletteComponent,
     CreateChannelDialogComponent,
     CreateWorkspaceDialogComponent,
+    NewChatDialogComponent,
     ProfileSettingsComponent,
     CallStageComponent,
     CallFloatingWidgetComponent,
@@ -83,6 +85,7 @@ export class WorkspaceShellComponent {
   protected readonly createChannelOpen = signal(false);
   protected readonly createWorkspaceOpen = signal(false);
   protected readonly profileOpen = signal(false);
+  protected readonly newChatOpen = signal(false);
 
   private readonly urlSyncEnabled = signal(false);
   private readonly currentPath = signal(this.cleanPath(this.router.url));
@@ -135,6 +138,11 @@ export class WorkspaceShellComponent {
     const workspace = this.state.activeWorkspace();
     if (!workspace) return;
     void this.router.navigate(['/app', workspace.slug, channel.id]);
+  }
+
+  protected onChatStarted(channel: Channel): void {
+    this.newChatOpen.set(false);
+    this.selectChannel(channel);
   }
 
   protected async onWorkspaceCreated(workspace: Workspace): Promise<void> {

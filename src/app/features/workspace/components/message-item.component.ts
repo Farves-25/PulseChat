@@ -31,6 +31,7 @@ import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
 import { MentionParserPipe } from '../../../shared/pipes/mention-parser.pipe';
 import { formatFullDate, formatMessageTime } from '../../../shared/utils/time';
 import { UserAvatarComponent } from '../../../shared/components/user-avatar.component';
+import { VoiceMessagePlayerComponent } from '../../../shared/components/voice-message-player.component';
 import { EmojiPickerComponent } from './emoji-picker.component';
 
 const QUICK_REACTIONS = ['👍', '❤️', '🔥', '🎉', '😂', '👀'];
@@ -40,6 +41,7 @@ const QUICK_REACTIONS = ['👍', '❤️', '🔥', '🎉', '😂', '👀'];
   imports: [
     UserAvatarComponent,
     EmojiPickerComponent,
+    VoiceMessagePlayerComponent,
     ClickOutsideDirective,
     MentionParserPipe,
     FileSizePipe,
@@ -98,8 +100,22 @@ export class MessageItemComponent {
   protected readonly imageAttachments = computed(() =>
     this.message().attachments.filter((attachment) => attachment.type.startsWith('image/')),
   );
+  protected readonly voiceAttachments = computed(() =>
+    this.message().attachments.filter(
+      (attachment) =>
+        attachment.type === 'audio' ||
+        attachment.type.startsWith('audio/') ||
+        /\.(webm|ogg|mp3|wav|m4a)$/i.test(attachment.name),
+    ),
+  );
   protected readonly fileAttachments = computed(() =>
-    this.message().attachments.filter((attachment) => !attachment.type.startsWith('image/')),
+    this.message().attachments.filter(
+      (attachment) =>
+        !attachment.type.startsWith('image/') &&
+        attachment.type !== 'audio' &&
+        !attachment.type.startsWith('audio/') &&
+        !/\.(webm|ogg|mp3|wav|m4a)$/i.test(attachment.name),
+    ),
   );
   protected readonly mentionsMe = computed(() => {
     const handle = this.state.currentProfile()?.handle;

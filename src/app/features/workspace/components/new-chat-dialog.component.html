@@ -1,0 +1,117 @@
+<div
+  class="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/60 px-3 py-6 backdrop-blur-md"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="new-chat-title"
+  (click)="close()"
+  (keydown.escape)="$event.stopPropagation(); close()"
+>
+  <div
+    class="glass-strong w-full max-w-lg overflow-hidden rounded-3xl animate-pop"
+    (click)="$event.stopPropagation()"
+  >
+    <!-- Header -->
+    <header class="flex items-center justify-between border-b border-default px-5 py-4">
+      <div class="flex items-center gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+          <svg lucideMessageSquarePlus [size]="20"></svg>
+        </span>
+        <div>
+          <h2 id="new-chat-title" class="text-base font-extrabold tracking-tight text-soft">
+            New Chat
+          </h2>
+          <p class="text-xs text-muted">
+            Enter an email address to start talking with anyone.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="icon-btn h-8 w-8 shrink-0"
+        aria-label="Close dialog"
+        (click)="close()"
+      >
+        <svg lucideX [size]="16"></svg>
+      </button>
+    </header>
+
+    <!-- Search Input -->
+    <div class="p-4 border-b border-default">
+      <form (ngSubmit)="submitEmail()" class="relative flex items-center">
+        <svg
+          lucideSearch
+          class="pointer-events-none absolute left-3.5 text-muted"
+          [size]="16"
+        ></svg>
+        <input
+          #searchInput
+          type="email"
+          class="field pl-10 pr-24"
+          placeholder="Enter email (e.g. farves@gmail.com)..."
+          [ngModel]="query()"
+          (ngModelChange)="onSearchInput($event)"
+          name="emailQuery"
+          autocomplete="off"
+          autofocus
+        />
+        <button
+          type="submit"
+          class="btn-primary absolute right-1.5 h-8 px-3 text-xs"
+          [disabled]="!query().trim() || starting()"
+        >
+          @if (starting()) {
+            <svg lucideLoaderCircle class="animate-spin" [size]="13"></svg>
+          } @else {
+            Chat
+          }
+        </button>
+      </form>
+    </div>
+
+    <!-- Users List -->
+    <div class="max-h-80 overflow-y-auto p-2 space-y-1">
+      <p class="px-3 py-1.5 text-[0.68rem] font-bold uppercase tracking-wider text-muted">
+        Registered Contacts
+      </p>
+
+      @if (loading() && users().length === 0) {
+        <div class="flex items-center justify-center py-8 text-xs text-muted">
+          <svg lucideLoaderCircle class="animate-spin mr-2" [size]="16"></svg>
+          Finding contacts…
+        </div>
+      } @else if (users().length === 0) {
+        <div class="py-8 text-center text-xs text-muted">
+          No registered contacts found. Type an email address above and press Chat!
+        </div>
+      } @else {
+        @for (user of users(); track user.id) {
+          <button
+            type="button"
+            class="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition hover:bg-[var(--surface-2)]"
+            (click)="startChatWithUser(user)"
+            [disabled]="starting()"
+          >
+            <app-user-avatar
+              [profile]="user"
+              [name]="user.display_name"
+              [presence]="user.presence"
+              [showPresence]="true"
+              [size]="38"
+            />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between">
+                <p class="truncate text-sm font-bold text-soft">{{ user.display_name }}</p>
+                <span class="text-[0.68rem] font-semibold text-accent hover:underline">
+                  Chat &rarr;
+                </span>
+              </div>
+              <p class="truncate text-xs text-muted">
+                {{ user.email || ('@' + user.handle) }}
+              </p>
+            </div>
+          </button>
+        }
+      }
+    </div>
+  </div>
+</div>

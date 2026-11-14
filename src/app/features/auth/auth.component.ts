@@ -88,6 +88,8 @@ export class AuthComponent {
   protected readonly magicLinkSending = signal(false);
   protected readonly forgotSending = signal(false);
   protected readonly submitted = signal(false);
+  protected readonly showSwitchToSignIn = signal(false);
+  protected readonly showCreateAccountPrompt = signal(false);
 
   protected readonly isSignup = computed(() => this.tab() === 'signup');
   protected readonly isForgot = computed(() => this.tab() === 'forgot');
@@ -339,8 +341,35 @@ export class AuthComponent {
     this.theme.toggle();
   }
 
+  protected switchToSignInWithEmail(email?: string): void {
+    const targetEmail = email || this.signUpForm.controls.email.value;
+    if (targetEmail) {
+      this.signInForm.controls.email.setValue(targetEmail);
+    }
+    this.tab.set('signin');
+    this.error.set(null);
+    this.notice.set(null);
+    this.showSwitchToSignIn.set(false);
+    this.showCreateAccountPrompt.set(false);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const input = document.getElementById('signin-password') as HTMLInputElement | null;
+        input?.focus();
+        input?.select();
+      }, 80);
+    }
+  }
+
+  protected switchToSignUpWithCurrentCredentials(): void {
+    const email = this.signInForm.controls.email.value.trim();
+    const password = this.signInForm.controls.password.value;
+    this.redirectToSignUpWithPrefill(email, password);
+  }
+
   private async runSignIn(): Promise<void> {
     this.submitting.set(true);
+    this.showSwitchToSignIn.set(false);
+    this.showCreateAccountPrompt.set(false);
     const email = this.signInForm.controls.email.value.trim();
     const password = this.signInForm.controls.password.value;
     try {
@@ -349,14 +378,31 @@ export class AuthComponent {
       await this.router.navigate(['/app']);
     } catch (error) {
       const raw = this.messageOf(error).toLowerCase();
-      // If credentials do not match or user is not found, treat as a new user and prefill signup
+      // If credentials do not match or user is not found, verify if email truly exists
       if (
         raw.includes('invalid login credentials') ||
         raw.includes('invalid_grant') ||
         raw.includes('user not found') ||
         raw.includes('does not match')
       ) {
-        this.redirectToSignUpWithPrefill(email, password);
+        const emailExists = await this.auth.checkEmailExists(email);
+
+        if (emailExists === false) {
+          // Guaranteed to be a new email -> safe to prefill signup
+          this.redirectToSignUpWithPrefill(email, password);
+          return;
+        }
+
+        if (emailExists === true) {
+          // Account definitely exists -> wrong password. Keep on signin tab!
+          this.error.set('Incorrect password for this account. If you forgot your password, click "Forgot password?" to reset it.');
+          return;
+        }
+
+        // emailExists === null (RPC not installed or unavailable):
+        // Show invalid credentials message and offer optional one-click create account
+        this.error.set(this.auth.friendlyError(this.messageOf(error)));
+        this.showCreateAccountPrompt.set(true);
         return;
       }
       this.error.set(this.auth.friendlyError(this.messageOf(error)));
@@ -386,6 +432,8 @@ export class AuthComponent {
     this.tab.set('signup');
     this.submitted.set(false);
     this.error.set(null);
+    this.showSwitchToSignIn.set(false);
+    this.showCreateAccountPrompt.set(false);
     this.notice.set(
       'No account found with this email. We prefilled your details — just enter your name to finish creating your account!',
     );
@@ -404,6 +452,8 @@ export class AuthComponent {
 
   private async runSignUp(): Promise<void> {
     this.submitting.set(true);
+    this.showSwitchToSignIn.set(false);
+    this.showCreateAccountPrompt.set(false);
     try {
       const values = this.signUpForm.getRawValue();
       const result = await this.auth.signUp({
@@ -422,7 +472,12 @@ export class AuthComponent {
       this.toast.success('Account created', 'Welcome to PulseChat.');
       await this.router.navigate(['/app']);
     } catch (error) {
-      this.error.set(this.auth.friendlyError(this.messageOf(error)));
+      const msg = this.auth.friendlyError(this.messageOf(error));
+      this.error.set(msg);
+      const lower = msg.toLowerCase();
+      if (lower.includes('already exists') || lower.includes('already registered')) {
+        this.showSwitchToSignIn.set(true);
+      }
     } finally {
       this.submitting.set(false);
     }

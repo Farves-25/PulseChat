@@ -62,6 +62,36 @@ export class UploadService {
     };
   }
 
+  async uploadVoiceNote(blob: Blob, duration: number, channelId: string): Promise<Attachment> {
+    const extension = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const filename = `voice-message-${Date.now()}.${extension}`;
+    const file = new File([blob], filename, { type: blob.type || 'audio/webm' });
+
+    try {
+      const attachment = await this.upload(file, channelId);
+      return { ...attachment, type: 'audio', duration };
+    } catch {
+      // Fallback to base64 Data URL so voice notes ALWAYS work seamlessly
+      const dataUrl = await this.blobToDataUrl(blob);
+      return {
+        id: crypto.randomUUID(),
+        name: filename,
+        url: dataUrl,
+        size: blob.size,
+        type: 'audio',
+        duration,
+      };
+    }
+  }
+
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  }
+
   private imageDimensions(file: File): Promise<{ width?: number; height?: number }> {
     if (!file.type.startsWith('image/')) return Promise.resolve({});
 

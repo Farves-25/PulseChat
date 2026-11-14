@@ -48,11 +48,12 @@ const PRESENCE: PresenceChoice[] = [
 ];
 
 const ACCENTS: AccentChoice[] = [
-  { key: 'violet', label: 'Violet', value: '#7c6cff' },
-  { key: 'cyan', label: 'Cyan', value: '#06b6d4' },
+  { key: 'red', label: 'Red', value: '#ef4444' },
   { key: 'rose', label: 'Rose', value: '#f43f5e' },
-  { key: 'emerald', label: 'Emerald', value: '#10b981' },
   { key: 'amber', label: 'Amber', value: '#f59e0b' },
+  { key: 'emerald', label: 'Emerald', value: '#10b981' },
+  { key: 'cyan', label: 'Cyan', value: '#06b6d4' },
+  { key: 'violet', label: 'Violet', value: '#7c6cff' },
 ];
 
 const SHORTCUTS = [

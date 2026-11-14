@@ -15,6 +15,7 @@ import {
   LucideSettings,
   LucideSun,
   LucideUserPlus,
+  LucideMessageSquarePlus,
 } from '@lucide/angular';
 import { Channel, PresenceState, Profile, Workspace } from '../../../core/models';
 import { AuthService } from '../../../core/services/auth.service';
@@ -50,6 +51,7 @@ interface PresenceOption {
     LucideSettings,
     LucideSun,
     LucideUserPlus,
+    LucideMessageSquarePlus,
     LucideRadio,
   ],
   templateUrl: './channel-sidebar.component.html',
@@ -59,6 +61,7 @@ export class ChannelSidebarComponent {
   readonly selectChannel = output<Channel>();
   readonly createChannel = output<void>();
   readonly createWorkspace = output<void>();
+  readonly openNewChat = output<void>();
   readonly openProfile = output<void>();
   readonly closeMobile = output<void>();
 
@@ -138,8 +141,8 @@ export class ChannelSidebarComponent {
   }
 
   protected newDm(): void {
-    this.openMembers();
-    this.toast.info('Start a conversation', 'Choose a teammate from the members panel.');
+    this.openNewChat.emit();
+    this.closeMobile.emit();
   }
 
   protected switchWorkspace(workspace: Workspace): void {

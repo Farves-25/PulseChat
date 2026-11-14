@@ -135,6 +135,45 @@ export class AuthService {
     return 'Password reset link sent! Please check your inbox (and Spam folder).';
   }
 
+  async checkEmailExists(email: string): Promise<boolean | null> {
+    if (!this.supabase.client) return null;
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Try RPC if installed
+    try {
+      const { data, error } = await this.supabase.client.rpc('check_email_exists', {
+        check_email: cleanEmail,
+      });
+      if (!error && typeof data === 'boolean') {
+        return data;
+      }
+    } catch {
+      // Fall through to native check
+    }
+
+    // 2. Native Supabase Auth existence check (reliable out of the box)
+    try {
+      const res = await this.supabase.client.auth.signInWithOtp({
+        email: cleanEmail,
+        options: { shouldCreateUser: false },
+      });
+      if (res.error) {
+        const msg = res.error.message?.toLowerCase() || '';
+        if (
+          res.error.status === 422 ||
+          msg.includes('signups not allowed') ||
+          msg.includes('user not found') ||
+          msg.includes('no user')
+        ) {
+          return false; // Email does not exist in Supabase
+        }
+      }
+      return true; // Email already exists
+    } catch {
+      return null;
+    }
+  }
+
   async updatePassword(newPassword: string): Promise<void> {
     if (!this.supabase.client) {
       if (this.isDemo()) return;

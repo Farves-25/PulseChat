@@ -7,6 +7,7 @@
       (selectChannel)="selectChannel($event)"
       (createChannel)="createChannelOpen.set(true)"
       (createWorkspace)="createWorkspaceOpen.set(true)"
+      (openNewChat)="newChatOpen.set(true)"
       (openProfile)="profileOpen.set(true)"
       (closeMobile)="mobileSidebar.set(false)"
     />
@@ -26,6 +27,7 @@
           (selectChannel)="selectChannel($event)"
           (createChannel)="createChannelOpen.set(true)"
           (createWorkspace)="createWorkspaceOpen.set(true)"
+          (openNewChat)="newChatOpen.set(true)"
           (openProfile)="profileOpen.set(true)"
           (closeMobile)="mobileSidebar.set(false)"
         />
@@ -184,6 +186,13 @@
     <app-create-channel-dialog
       (closed)="createChannelOpen.set(false)"
       (created)="onChannelCreated()"
+    />
+  }
+
+  @if (newChatOpen()) {
+    <app-new-chat-dialog
+      (closed)="newChatOpen.set(false)"
+      (chatStarted)="onChatStarted($event)"
     />
   }
 

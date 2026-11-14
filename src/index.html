@@ -31,7 +31,8 @@
           document.documentElement.classList.toggle('dark', dark);
           document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
           var accent = localStorage.getItem('pulsechat.accent');
-          if (accent) document.documentElement.dataset.accent = accent;
+          if (accent === 'violet') accent = 'red';
+          document.documentElement.dataset.accent = accent || 'red';
         } catch (error) {
           /* Keep the dark default. */
         }

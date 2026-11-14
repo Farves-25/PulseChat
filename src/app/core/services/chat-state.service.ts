@@ -159,6 +159,7 @@ export class ChatStateService {
   readonly starredChannelIds = signal<string[]>([]);
   readonly drafts = signal<Record<string, MessageDraft>>(readDrafts());
   readonly failedMessageIds = signal<Set<string>>(new Set());
+  readonly profiles = signal<Map<string, Profile>>(new Map());
 
   readonly currentUserId = this.auth.currentUserId;
   readonly currentProfile = this.auth.profile;
@@ -170,7 +171,7 @@ export class ChatStateService {
   );
 
   readonly profileById = computed(() => {
-    const map = new Map<string, Profile>();
+    const map = new Map<string, Profile>(this.profiles());
     for (const profile of this.memberProfiles()) map.set(profile.id, profile);
     const me = this.currentProfile();
     if (me) map.set(me.id, me);
@@ -241,7 +242,7 @@ export class ChatStateService {
     if (channel.is_dm) {
       const otherId = channel.member_ids.find((id) => id !== this.currentUserId());
       const other = otherId ? this.profileById().get(otherId) : undefined;
-      return other?.status_message ?? '';
+      return other?.email || other?.status_message || (other?.handle ? `@${other.handle}` : '');
     }
     return channel.topic ?? '';
   });
@@ -268,6 +269,7 @@ export class ChatStateService {
 
   private messageChannel: RealtimeChannel | null = null;
   private workspaceChannel: RealtimeChannel | null = null;
+  private userEventsChannel: RealtimeChannel | null = null;
   private readonly typingTimers = new Map<string, number>();
   private lastTypingSentAt = 0;
   private markReadTimer: number | null = null;
@@ -313,7 +315,19 @@ export class ChatStateService {
     this.connection.set(this.auth.isDemo() ? 'demo' : 'connecting');
 
     try {
-      const workspaces = await this.loadWorkspaces(userId);
+      let workspaces = await this.loadWorkspaces(userId);
+
+      if (workspaces.length === 0) {
+        // WhatsApp-style zero-friction onboarding: automatically setup personal chat space
+        const autoWorkspace = await this.createWorkspace({
+          name: 'Chats',
+          slug: `chats-${userId.slice(0, 8)}`,
+          icon: '💬',
+        });
+        if (autoWorkspace) {
+          workspaces = [autoWorkspace];
+        }
+      }
       this.workspaces.set(workspaces);
 
       if (workspaces.length === 0) {
@@ -1035,7 +1049,7 @@ export class ChatStateService {
           owner_id: profile.id,
           created_at: existingWorkspace?.created_at ?? new Date().toISOString(),
           icon_emoji: values.icon,
-          accent: 'violet',
+          accent: 'red',
           member_count: 1,
         };
       }
@@ -1065,26 +1079,57 @@ export class ChatStateService {
         const client = this.supabase.requireClient();
         const other = this.profileById().get(otherUserId);
         const dmKey = [profile.id, otherUserId].sort().join(':');
+        // Search globally across all workspaces for an existing direct message between these two users
         const { data: existing } = await client
           .from('channels')
-          .select('id')
-          .eq('workspace_id', workspace.id)
+          .select('id, workspace_id')
           .eq('dm_key', dmKey)
           .maybeSingle();
 
         if (existing) {
+          const targetWsId = (existing as { workspace_id?: string }).workspace_id || workspace.id;
+          // Ensure both users are in workspace_members of that channel's workspace
+          try {
+            await client.from('workspace_members').upsert([
+              { workspace_id: targetWsId, user_id: profile.id, role: 'member' },
+              { workspace_id: targetWsId, user_id: otherUserId, role: 'member' },
+            ], { onConflict: 'workspace_id,user_id' });
+          } catch {
+            // Best effort
+          }
+
+          // Ensure both users are registered as channel members
+          try {
+            await client.from('channel_members').upsert([
+              { channel_id: existing.id, user_id: profile.id },
+              { channel_id: existing.id, user_id: otherUserId },
+            ], { onConflict: 'channel_id,user_id' });
+          } catch {
+            // Best effort
+          }
+
           channel = this.buildChannelFallback(
             String((existing as { id: string }).id),
-            workspace.id,
+            targetWsId,
             other?.handle ?? 'direct-message',
             {
               name: other?.handle ?? 'direct-message',
               topic: '',
               isPrivate: true,
-              memberIds: [otherUserId],
+              memberIds: [profile.id, otherUserId],
             },
           );
         } else {
+          // Ensure other user is also in workspace_members so permissions pass
+          try {
+            await client.from('workspace_members').upsert(
+              { workspace_id: workspace.id, user_id: otherUserId, role: 'member' },
+              { onConflict: 'workspace_id,user_id' },
+            );
+          } catch {
+            // Best effort
+          }
+
           const id = randomId();
           const { error } = await client.from('channels').insert({
             id,
@@ -1121,6 +1166,86 @@ export class ChatStateService {
       this.toast.error('Could not open conversation', this.errorMessage(error));
       return null;
     }
+  }
+
+  async searchUsersByEmail(query: string): Promise<Profile[]> {
+    const q = query.trim().toLowerCase();
+    const myId = this.currentUserId();
+
+    if (this.auth.isDemo()) {
+      return this.demo
+        .getProfiles()
+        .filter((p: Profile) => p.id !== myId)
+        .filter(
+          (p: Profile) =>
+            !q ||
+            (p.email && p.email.toLowerCase().includes(q)) ||
+            p.display_name.toLowerCase().includes(q) ||
+            p.handle.toLowerCase().includes(q),
+        );
+    }
+
+    try {
+      const client = this.supabase.requireClient();
+      let req = client.from('profiles').select('*').neq('id', myId || '');
+      if (q) {
+        req = req.or(`email.ilike.%${q}%,display_name.ilike.%${q}%,handle.ilike.%${q}%`);
+      }
+      const { data, error } = await req.limit(20);
+      if (error) {
+        console.warn('Search users error:', error.message);
+        return [];
+      }
+      const results = (data ?? []) as Profile[];
+      // Hydrate into profile map
+      const currentMap = new Map(this.profiles());
+      for (const p of results) {
+        this.hydratedProfileIds.add(p.id);
+        currentMap.set(p.id, p);
+      }
+      this.profiles.set(currentMap);
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  async startChatByEmail(email: string): Promise<Channel | null> {
+    const cleanEmail = email.trim().toLowerCase();
+    const myId = this.currentUserId();
+    if (!cleanEmail) return null;
+
+    let targetProfile: Profile | null = null;
+
+    if (this.auth.isDemo()) {
+      targetProfile =
+        this.demo
+          .getProfiles()
+          .find((p: Profile) => p.email?.toLowerCase() === cleanEmail || p.handle.toLowerCase() === cleanEmail) ?? null;
+    } else {
+      const client = this.supabase.requireClient();
+      const { data } = await client
+        .from('profiles')
+        .select('*')
+        .or(`email.ilike.${cleanEmail},handle.ilike.${cleanEmail}`)
+        .neq('id', myId || '')
+        .maybeSingle();
+
+      targetProfile = (data as Profile) ?? null;
+    }
+
+    if (!targetProfile) {
+      this.toast.error('User not found', `No registered user found with email "${cleanEmail}".`);
+      return null;
+    }
+
+    // Hydrate target profile into state
+    this.hydratedProfileIds.add(targetProfile.id);
+    const updatedMap = new Map(this.profiles());
+    updatedMap.set(targetProfile.id, targetProfile);
+    this.profiles.set(updatedMap);
+
+    return this.startDirectMessage(targetProfile.id);
   }
 
   async updateChannelTopic(topic: string): Promise<void> {
@@ -1296,12 +1421,16 @@ export class ChatStateService {
         this.activeWorkspace.set(workspace);
 
         const client = this.supabase.requireClient();
-        const [channelResult, memberResult, readResult, unreadResult] = await Promise.all([
+        const [channelResult, dmMembershipsResult, memberResult, readResult, unreadResult] = await Promise.all([
           client
             .from('channels')
             .select('*, channel_members(user_id)')
             .eq('workspace_id', workspaceId)
             .order('name', { ascending: true }),
+          client
+            .from('channel_members')
+            .select('channel_id')
+            .eq('user_id', userId),
           client
             .from('workspace_members')
             .select('workspace_id, user_id, role, profile:profiles!workspace_members_user_id_fkey(*)')
@@ -1316,6 +1445,39 @@ export class ChatStateService {
         if (channelResult.error) throw channelResult.error;
         if (memberResult.error) throw memberResult.error;
 
+        const workspaceRows = (channelResult.data ?? []) as unknown as ChannelRow[];
+        const existingIds = new Set(workspaceRows.map((r) => r.id));
+        const extraDmChannelIds = ((dmMembershipsResult.data ?? []) as { channel_id: string }[])
+          .map((m) => m.channel_id)
+          .filter((id) => !existingIds.has(id));
+
+        const allChannelRows = [...workspaceRows];
+        if (extraDmChannelIds.length > 0) {
+          const { data: extraDms } = await client
+            .from('channels')
+            .select('*, channel_members(user_id)')
+            .in('id', extraDmChannelIds)
+            .eq('is_dm', true);
+
+          if (extraDms && Array.isArray(extraDms)) {
+            allChannelRows.push(...(extraDms as unknown as ChannelRow[]));
+          }
+        }
+
+        const missingUserIds = new Set<string>();
+        for (const row of allChannelRows) {
+          if (row.is_dm && Array.isArray(row.channel_members)) {
+            for (const cm of row.channel_members) {
+              if (cm.user_id !== userId && !this.profileById().has(cm.user_id)) {
+                missingUserIds.add(cm.user_id);
+              }
+            }
+          }
+        }
+        if (missingUserIds.size > 0) {
+          void this.hydrateProfiles([...missingUserIds]);
+        }
+
         const unreadMap = new Map<string, UnreadRow>();
         if (!unreadResult.error && Array.isArray(unreadResult.data)) {
           for (const row of unreadResult.data as unknown as UnreadRow[]) {
@@ -1323,7 +1485,7 @@ export class ChatStateService {
           }
         }
 
-        const channels = ((channelResult.data ?? []) as unknown as ChannelRow[]).map((row) =>
+        const channels = allChannelRows.map((row) =>
           this.mapChannelRow(row, unreadMap.get(row.id)),
         );
         this.channels.set(channels);
@@ -1338,6 +1500,7 @@ export class ChatStateService {
 
         this.starredChannelIds.set(this.readStars());
         this.subscribeToWorkspace(workspaceId);
+        this.subscribeToUserEvents(userId);
 
         if (!readResult.error && Array.isArray(readResult.data)) {
           // The unread RPC already provides last_read_at. This query is a fallback
@@ -1499,6 +1662,63 @@ export class ChatStateService {
     this.workspaceChannel = channel;
   }
 
+  private subscribeToUserEvents(userId: string): void {
+    if (this.auth.isDemo() || !this.supabase.client) return;
+    const client = this.supabase.client;
+    this.removeChannel(this.userEventsChannel);
+    this.userEventsChannel = null;
+
+    const channel = client.channel(`user-realtime:${userId}`);
+
+    channel
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const row = payload.new as unknown as MessageRow;
+          if (this.activeChannel()?.id === row.channel_id) {
+            void this.handleMessageEvent(payload, row.channel_id);
+          } else {
+            const hasChannel = this.channels().some((c) => c.id === row.channel_id);
+            if (!hasChannel) {
+              void this.refreshChannels();
+            } else {
+              this.updateChannelPreview(
+                row.channel_id,
+                row.content || 'Voice message',
+                row.created_at,
+              );
+              if (row.sender_id !== userId) {
+                this.incrementUnread(row.channel_id, false);
+              }
+            }
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'channel_members',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void this.refreshChannels();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'channels' },
+        () => {
+          void this.refreshChannels();
+        },
+      )
+      .subscribe();
+
+    this.userEventsChannel = channel;
+  }
+
   private async handleMessageEvent(
     payload: RealtimePostgresChangesPayload<Record<string, unknown>>,
     channelId: string,
@@ -1585,15 +1805,55 @@ export class ChatStateService {
     }
 
     const client = this.supabase.requireClient();
-    const { data, error } = await client
-      .from('channels')
-      .select('*, channel_members(user_id)')
-      .eq('workspace_id', workspace.id)
-      .order('name', { ascending: true });
-    if (error) return;
+    const [wsRes, dmMembershipsRes] = await Promise.all([
+      client
+        .from('channels')
+        .select('*, channel_members(user_id)')
+        .eq('workspace_id', workspace.id)
+        .order('name', { ascending: true }),
+      client
+        .from('channel_members')
+        .select('channel_id')
+        .eq('user_id', userId),
+    ]);
+
+    if (wsRes.error) return;
+
+    const workspaceRows = (wsRes.data ?? []) as unknown as ChannelRow[];
+    const existingIds = new Set(workspaceRows.map((r) => r.id));
+    const extraDmChannelIds = ((dmMembershipsRes.data ?? []) as { channel_id: string }[])
+      .map((m) => m.channel_id)
+      .filter((id) => !existingIds.has(id));
+
+    const allChannelRows = [...workspaceRows];
+    if (extraDmChannelIds.length > 0) {
+      const { data: extraDms } = await client
+        .from('channels')
+        .select('*, channel_members(user_id)')
+        .in('id', extraDmChannelIds)
+        .eq('is_dm', true);
+
+      if (extraDms && Array.isArray(extraDms)) {
+        allChannelRows.push(...(extraDms as unknown as ChannelRow[]));
+      }
+    }
+
+    const missingUserIds = new Set<string>();
+    for (const row of allChannelRows) {
+      if (row.is_dm && Array.isArray(row.channel_members)) {
+        for (const cm of row.channel_members) {
+          if (cm.user_id !== userId && !this.profileById().has(cm.user_id)) {
+            missingUserIds.add(cm.user_id);
+          }
+        }
+      }
+    }
+    if (missingUserIds.size > 0) {
+      void this.hydrateProfiles([...missingUserIds]);
+    }
 
     const unreadMap = new Map(this.channels().map((channel) => [channel.id, channel]));
-    const channels = ((data ?? []) as unknown as ChannelRow[]).map((row) => {
+    const channels = allChannelRows.map((row) => {
       const previous = unreadMap.get(row.id);
       const mapped = this.mapChannelRow(row);
       return {
@@ -1650,6 +1910,26 @@ export class ChatStateService {
 
     const reactions = this.mapReactions((data ?? []) as unknown as ReactionRow[]);
     this.patchMessage(messageId, { reactions });
+  }
+
+  private async hydrateProfiles(userIds: string[]): Promise<void> {
+    const needed = userIds.filter((id) => !this.hydratedProfileIds.has(id));
+    if (needed.length === 0) return;
+    for (const id of needed) this.hydratedProfileIds.add(id);
+
+    try {
+      const client = this.supabase.requireClient();
+      const { data } = await client.from('profiles').select('*').in('id', needed);
+      if (data && Array.isArray(data)) {
+        const currentMap = new Map(this.profiles());
+        for (const p of data as Profile[]) {
+          currentMap.set(p.id, p);
+        }
+        this.profiles.set(currentMap);
+      }
+    } catch {
+      // Best-effort profile hydration
+    }
   }
 
   private async hydrateMessageSender(message: Message): Promise<void> {
@@ -1977,8 +2257,10 @@ export class ChatStateService {
   private disconnectChannels(): void {
     this.removeChannel(this.messageChannel);
     this.removeChannel(this.workspaceChannel);
+    this.removeChannel(this.userEventsChannel);
     this.messageChannel = null;
     this.workspaceChannel = null;
+    this.userEventsChannel = null;
     for (const timer of this.typingTimers.values()) window.clearTimeout(timer);
     this.typingTimers.clear();
   }

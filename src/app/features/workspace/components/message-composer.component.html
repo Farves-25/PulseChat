@@ -81,53 +81,113 @@
   <div
     class="glass group/composer relative rounded-2xl border border-default shadow-soft transition focus-within:border-[rgba(var(--accent-rgb),0.45)] focus-within:shadow-[0_0_0_4px_rgba(var(--accent-rgb),0.08),var(--shadow-soft)]"
   >
-    <div class="flex items-end gap-1 p-1.5">
-      <button
-        type="button"
-        class="icon-btn mb-0.5 h-8 w-8 shrink-0"
-        aria-label="Attach files"
-        title="Attach files"
-        (click)="openFilePicker()"
-      >
-        <svg lucidePaperclip [size]="16"></svg>
-      </button>
+    @if (voiceRecorder.isRecording()) {
+      <div class="flex items-center gap-3 p-2.5 animate-fade-in">
+        <!-- Trash / Cancel -->
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-default bg-[var(--surface-2)] text-muted transition hover:bg-rose-500/10 hover:text-rose-500"
+          title="Discard recording"
+          aria-label="Discard voice recording"
+          (click)="cancelVoiceRecording()"
+        >
+          <svg lucideTrash2 [size]="16"></svg>
+        </button>
 
-      <textarea
-        #composer
-        class="max-h-[220px] min-h-[2.25rem] flex-1 resize-none bg-transparent px-1 py-2 text-[0.85rem] leading-6 text-soft outline-none placeholder:text-muted-2"
-        rows="1"
-        [placeholder]="placeholder()"
-        [attr.aria-label]="placeholder()"
-        [value]="text()"
-        (input)="onInput($event)"
-        (keydown)="onKeydown($event)"
-        (paste)="onPaste($event)"
-      ></textarea>
+        <!-- Red pulsing indicator & timer -->
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-3 w-3">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
+            <span class="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
+          </span>
+          <span class="font-mono text-[0.8rem] font-bold text-soft">
+            {{ formatRecordingTime(voiceRecorder.recordingDuration()) }}
+          </span>
+        </div>
 
-      <button
-        type="button"
-        class="icon-btn mb-0.5 h-8 w-8 shrink-0"
-        aria-label="Insert emoji"
-        title="Insert emoji"
-        (pointerdown)="$event.stopPropagation()"
-        (click)="toggleEmoji($event)"
-      >
-        <svg lucideSmile [size]="16"></svg>
-      </button>
+        <!-- Animated audio wave bars -->
+        <div class="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden px-2">
+          @for (level of voiceRecorder.audioLevels(); track $index) {
+            <span
+              class="w-[3px] rounded-full transition-all duration-100"
+              style="background: var(--accent)"
+              [style.height.px]="level"
+            ></span>
+          }
+        </div>
 
-      <button
-        type="button"
-        class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
-        style="background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 58%, var(--accent-2)))"
-        [disabled]="!canSend() || uploading()"
-        [attr.aria-label]="mode() === 'thread' ? 'Reply in thread' : 'Send message'"
-        (click)="send()"
-      >
-        <svg lucideSend [size]="15"></svg>
-      </button>
-    </div>
+        <!-- Stop & Send Voice Note button -->
+        <button
+          type="button"
+          class="flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-white shadow-lg transition hover:scale-102 active:scale-98"
+          style="background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, #000))"
+          aria-label="Send voice message"
+          (click)="sendVoiceRecording()"
+        >
+          <svg lucideSend [size]="15"></svg>
+          <span class="text-[0.72rem] font-bold">Send Voice</span>
+        </button>
+      </div>
+    } @else {
+      <div class="flex items-end gap-1 p-1.5">
+        <button
+          type="button"
+          class="icon-btn mb-0.5 h-8 w-8 shrink-0"
+          aria-label="Attach files"
+          title="Attach files"
+          (click)="openFilePicker()"
+        >
+          <svg lucidePaperclip [size]="16"></svg>
+        </button>
 
-    @if (mode() === 'channel' && !compact()) {
+        <textarea
+          #composer
+          class="max-h-[220px] min-h-[2.25rem] flex-1 resize-none bg-transparent px-1 py-2 text-[0.85rem] leading-6 text-soft outline-none placeholder:text-muted-2"
+          rows="1"
+          [placeholder]="placeholder()"
+          [attr.aria-label]="placeholder()"
+          [value]="text()"
+          (input)="onInput($event)"
+          (keydown)="onKeydown($event)"
+          (paste)="onPaste($event)"
+        ></textarea>
+
+        <button
+          type="button"
+          class="icon-btn mb-0.5 h-8 w-8 shrink-0"
+          aria-label="Insert emoji"
+          title="Insert emoji"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="toggleEmoji($event)"
+        >
+          <svg lucideSmile [size]="16"></svg>
+        </button>
+
+        <!-- Voice Message Button (WhatsApp style) -->
+        <button
+          type="button"
+          class="icon-btn mb-0.5 h-8 w-8 shrink-0 text-muted transition hover:bg-accent-soft hover:text-accent"
+          aria-label="Record voice note"
+          title="Record voice note"
+          (click)="startVoiceRecording()"
+        >
+          <svg lucideMic [size]="16"></svg>
+        </button>
+
+        <button
+          type="button"
+          class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
+          style="background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 58%, var(--accent-2)))"
+          [disabled]="!canSend() || uploading()"
+          [attr.aria-label]="mode() === 'thread' ? 'Reply in thread' : 'Send message'"
+          (click)="send()"
+        >
+          <svg lucideSend [size]="15"></svg>
+        </button>
+      </div>
+    }
+
+    @if (!voiceRecorder.isRecording() && mode() === 'channel' && !compact()) {
       <div class="flex items-center gap-0.5 border-t border-default px-1.5 py-1">
         <button type="button" class="format-btn" title="Bold" aria-label="Bold" (click)="format('**')">
           <svg lucideBold [size]="13"></svg>

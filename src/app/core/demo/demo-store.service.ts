@@ -464,7 +464,7 @@ export class DemoStoreService {
       owner_id: input.ownerId,
       created_at: new Date().toISOString(),
       icon_emoji: input.icon || '✨',
-      accent: 'violet',
+      accent: 'red',
       member_count: 1,
     };
 

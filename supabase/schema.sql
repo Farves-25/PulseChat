@@ -213,8 +213,11 @@ as $$
     select 1
     from public.channels c
     where c.id = p_channel_id
-      and public.is_workspace_member(c.workspace_id, p_user_id)
-      and (c.is_private = false or public.is_channel_member(c.id, p_user_id))
+      and (
+        (c.is_dm = true and public.is_channel_member(c.id, p_user_id))
+        or
+        (public.is_workspace_member(c.workspace_id, p_user_id) and (c.is_private = false or public.is_channel_member(c.id, p_user_id)))
+      )
   );
 $$;
 
@@ -477,6 +480,22 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- Check if an email is already registered in auth.users
+-- ---------------------------------------------------------------------------
+create or replace function public.check_email_exists(check_email text)
+returns boolean
+language sql
+security definer
+set search_path = public, auth, pg_temp
+as $$
+  select exists (
+    select 1 from auth.users where lower(email) = lower(trim(check_email))
+  );
+$$;
+
+grant execute on function public.check_email_exists(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Row level security
 -- ---------------------------------------------------------------------------
 
@@ -579,12 +598,18 @@ create policy channels_delete on public.channels
 drop policy if exists channel_members_select on public.channel_members;
 create policy channel_members_select on public.channel_members
   for select to authenticated
-  using (public.can_access_channel(channel_id));
+  using (user_id = auth.uid() or public.can_access_channel(channel_id));
 
 drop policy if exists channel_members_insert on public.channel_members;
 create policy channel_members_insert on public.channel_members
   for insert to authenticated
-  with check (public.is_workspace_member(public.channel_workspace(channel_id)));
+  with check (
+    public.is_workspace_member(public.channel_workspace(channel_id))
+    or exists (
+      select 1 from public.channels c
+      where c.id = channel_id and c.is_dm = true and (c.created_by = auth.uid() or public.is_channel_member(channel_id, auth.uid()))
+    )
+  );
 
 drop policy if exists channel_members_delete on public.channel_members;
 create policy channel_members_delete on public.channel_members

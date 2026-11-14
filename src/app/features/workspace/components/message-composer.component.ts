@@ -19,16 +19,19 @@ import {
   LucideLink,
   LucideList,
   LucideLoaderCircle,
+  LucideMic,
   LucidePaperclip,
   LucideQuote,
   LucideSend,
   LucideSmile,
+  LucideTrash2,
   LucideX,
 } from '@lucide/angular';
 import { Attachment, Profile } from '../../../core/models';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { UploadService } from '../../../core/services/upload.service';
+import { VoiceRecorderService } from '../../../core/services/voice-recorder.service';
 import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
 import { UserAvatarComponent } from '../../../shared/components/user-avatar.component';
 import { EmojiPickerComponent } from './emoji-picker.component';
@@ -47,10 +50,12 @@ import { EmojiPickerComponent } from './emoji-picker.component';
     LucideLink,
     LucideList,
     LucideLoaderCircle,
+    LucideMic,
     LucidePaperclip,
     LucideQuote,
     LucideSend,
     LucideSmile,
+    LucideTrash2,
     LucideX,
   ],
   templateUrl: './message-composer.component.html',
@@ -63,6 +68,7 @@ export class MessageComposerComponent {
   readonly compact = input(false);
 
   protected readonly state = inject(ChatStateService);
+  protected readonly voiceRecorder = inject(VoiceRecorderService);
   private readonly upload = inject(UploadService);
   private readonly toast = inject(ToastService);
 
@@ -184,6 +190,63 @@ export class MessageComposerComponent {
     if (this.mode() === 'channel' && channelId) this.state.clearDraft(channelId);
 
     await this.state.sendMessage({ content, attachments, parentId });
+  }
+
+  protected async startVoiceRecording(): Promise<void> {
+    try {
+      await this.voiceRecorder.start();
+    } catch {
+      this.toast.error(
+        'Microphone access required',
+        'Please allow microphone permission to record voice messages.',
+      );
+    }
+  }
+
+  protected cancelVoiceRecording(): void {
+    this.voiceRecorder.cancel();
+  }
+
+  protected async sendVoiceRecording(): Promise<void> {
+    const channelId = this.channelId();
+    if (!channelId) {
+      this.voiceRecorder.cancel();
+      return;
+    }
+
+    try {
+      this.uploading.set(true);
+      const note = await this.voiceRecorder.stop();
+      if (!note || note.duration < 1) {
+        return;
+      }
+
+      const attachment = await this.upload.uploadVoiceNote(
+        note.blob,
+        note.duration,
+        channelId,
+      );
+
+      const parentId = this.mode() === 'thread' ? this.parentId() : null;
+      await this.state.sendMessage({
+        content: '',
+        attachments: [attachment],
+        parentId,
+      });
+    } catch (error) {
+      this.toast.error(
+        'Could not send voice message',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    } finally {
+      this.uploading.set(false);
+    }
+  }
+
+  protected formatRecordingTime(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   }
 
   protected openFilePicker(): void {

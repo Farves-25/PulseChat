@@ -54,6 +54,7 @@ export interface Attachment {
   type: string;
   width?: number;
   height?: number;
+  duration?: number;
 }
 
 export interface ReactionSummary {

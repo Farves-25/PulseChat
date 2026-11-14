@@ -1,7 +1,7 @@
 import { Service, signal } from '@angular/core';
 
 export type ThemeMode = 'dark' | 'light';
-export type AccentKey = 'violet' | 'cyan' | 'rose' | 'emerald' | 'amber';
+export type AccentKey = 'red' | 'violet' | 'cyan' | 'rose' | 'emerald' | 'amber';
 
 const THEME_KEY = 'pulsechat.theme';
 const ACCENT_KEY = 'pulsechat.accent';
@@ -61,12 +61,23 @@ export class ThemeService {
   private initialAccent(): AccentKey {
     try {
       const stored = localStorage.getItem(ACCENT_KEY);
-      if (stored === 'violet' || stored === 'cyan' || stored === 'rose' || stored === 'emerald' || stored === 'amber') {
+      if (
+        stored === 'red' ||
+        stored === 'violet' ||
+        stored === 'cyan' ||
+        stored === 'rose' ||
+        stored === 'emerald' ||
+        stored === 'amber'
+      ) {
+        if (stored === 'violet') {
+          localStorage.setItem(ACCENT_KEY, 'red');
+          return 'red';
+        }
         return stored;
       }
     } catch {
       // Ignore storage failures.
     }
-    return 'violet';
+    return 'red';
   }
 }
