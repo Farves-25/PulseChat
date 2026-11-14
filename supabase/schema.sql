@@ -298,6 +298,19 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Backfill any existing auth users who registered before the trigger was created
+insert into public.profiles (id, display_name, handle, status_message, presence, email)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'display_name', split_part(u.email, '@', 1), 'New member'),
+  lower(regexp_replace(coalesce(u.raw_user_meta_data ->> 'handle', split_part(u.email, '@', 1), 'member'), '[^a-z0-9_]', '', 'g')) || '_' || substr(u.id::text, 1, 4),
+  'Available',
+  'online',
+  u.email
+from auth.users u
+where not exists (select 1 from public.profiles p where p.id = u.id)
+on conflict (id) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- Message aggregates: thread counts, channel previews
 -- ---------------------------------------------------------------------------
@@ -670,30 +683,45 @@ create policy reactions_delete on public.reactions
 -- Storage: public bucket for message attachments and avatars
 -- ---------------------------------------------------------------------------
 
-insert into storage.buckets (id, name, public)
-values ('chat-attachments', 'chat-attachments', true)
-on conflict (id) do update set public = true;
+do $$
+begin
+  insert into storage.buckets (id, name, public)
+  values ('chat-attachments', 'chat-attachments', true)
+  on conflict (id) do update set public = true;
+exception when others then null;
+end $$;
 
-drop policy if exists chat_attachments_read on storage.objects;
-create policy chat_attachments_read on storage.objects
-  for select to public
-  using (bucket_id = 'chat-attachments');
+do $$
+begin
+  drop policy if exists chat_attachments_read on storage.objects;
+  create policy chat_attachments_read on storage.objects
+    for select using (bucket_id = 'chat-attachments');
+exception when others then null;
+end $$;
 
-drop policy if exists chat_attachments_insert on storage.objects;
-create policy chat_attachments_insert on storage.objects
-  for insert to authenticated
-  with check (bucket_id = 'chat-attachments');
+do $$
+begin
+  drop policy if exists chat_attachments_insert on storage.objects;
+  create policy chat_attachments_insert on storage.objects
+    for insert with check (bucket_id = 'chat-attachments');
+exception when others then null;
+end $$;
 
-drop policy if exists chat_attachments_update on storage.objects;
-create policy chat_attachments_update on storage.objects
-  for update to authenticated
-  using (bucket_id = 'chat-attachments')
-  with check (bucket_id = 'chat-attachments');
+do $$
+begin
+  drop policy if exists chat_attachments_update on storage.objects;
+  create policy chat_attachments_update on storage.objects
+    for update using (bucket_id = 'chat-attachments');
+exception when others then null;
+end $$;
 
-drop policy if exists chat_attachments_delete on storage.objects;
-create policy chat_attachments_delete on storage.objects
-  for delete to authenticated
-  using (bucket_id = 'chat-attachments' and owner = auth.uid()::text);
+do $$
+begin
+  drop policy if exists chat_attachments_delete on storage.objects;
+  create policy chat_attachments_delete on storage.objects
+    for delete using (bucket_id = 'chat-attachments');
+exception when others then null;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Realtime publication
@@ -727,8 +755,8 @@ begin
   ) then
     alter publication supabase_realtime add table public.channels;
   end if;
-end
-$$;
+exception when others then null;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Starter content helper

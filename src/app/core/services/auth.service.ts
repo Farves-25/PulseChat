@@ -352,16 +352,21 @@ export class AuthService {
       email: user?.email ?? null,
     };
 
+    const profileToInsert = {
+      ...fallback,
+      handle: `${fallbackHandle}${Math.floor(Math.random() * 900 + 100)}`,
+    };
     const { data: inserted, error: insertError } = await client
       .from('profiles')
-      .upsert({ ...fallback, handle: `${fallbackHandle}${Math.floor(Math.random() * 900 + 100)}` })
+      .insert(profileToInsert)
       .select()
-      .single();
+      .maybeSingle();
 
     if (insertError) {
+      console.warn('loadSupabaseProfile insert fallback warning:', insertError.message);
       this.profile.set(fallback);
       return;
     }
-    this.profile.set(inserted as Profile);
+    this.profile.set((inserted as Profile) ?? fallback);
   }
 }

@@ -107,7 +107,14 @@ function readDrafts(): Record<string, MessageDraft> {
 }
 
 function randomId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 function normalizeChannelName(value: string): string {
@@ -896,8 +903,16 @@ export class ChatStateService {
   }
 
   async createWorkspace(values: WorkspaceFormValue): Promise<Workspace | null> {
-    const profile = this.currentProfile();
-    if (!profile) return null;
+    let profile = this.currentProfile();
+    if (!profile) {
+      await this.auth.refreshProfile();
+      profile = this.currentProfile();
+    }
+    if (!profile) {
+      const msg = 'User session not found. Please sign in again.';
+      this.toast.error('Session required', msg);
+      throw new Error(msg);
+    }
 
     try {
       let workspace: Workspace;
@@ -910,23 +925,79 @@ export class ChatStateService {
         });
       } else {
         const client = this.supabase.requireClient();
-        const workspaceId = randomId();
-        const { error } = await client.from('workspaces').insert({
-          id: workspaceId,
-          name: values.name.trim(),
-          slug: values.slug.trim().toLowerCase(),
-          owner_id: profile.id,
-        });
-        if (error) throw error;
 
-        await client
+        // Ensure user profile exists in public.profiles to satisfy foreign keys
+        const { data: existingProfile } = await client
+          .from('profiles')
+          .select('id')
+          .eq('id', profile.id)
+          .maybeSingle();
+
+        if (!existingProfile) {
+          const { error: profileErr } = await client.from('profiles').insert({
+            id: profile.id,
+            display_name: profile.display_name || 'Member',
+            handle: profile.handle || `user_${profile.id.slice(0, 8)}`,
+            status_message: profile.status_message || 'Available',
+            presence: profile.presence || 'online',
+            email: profile.email ?? null,
+          });
+          if (profileErr) {
+            console.warn('Profile sync fallback warning:', profileErr.message);
+          }
+        }
+
+        const normalizedSlug = values.slug.trim().toLowerCase();
+
+        // Check if workspace with this slug already exists (e.g. from a prior partial attempt)
+        const { data: existingWorkspace } = await client
+          .from('workspaces')
+          .select('*')
+          .eq('slug', normalizedSlug)
+          .maybeSingle();
+
+        let workspaceId: string;
+        if (existingWorkspace) {
+          if (existingWorkspace.owner_id === profile.id) {
+            workspaceId = existingWorkspace.id;
+          } else {
+            throw new Error(`The URL "${normalizedSlug}" is already taken. Please choose another.`);
+          }
+        } else {
+          workspaceId = randomId();
+          const { error } = await client.from('workspaces').insert({
+            id: workspaceId,
+            name: values.name.trim(),
+            slug: normalizedSlug,
+            owner_id: profile.id,
+            icon_emoji: values.icon,
+          });
+          if (error) throw error;
+        }
+
+        // Ensure user is registered as admin member in workspace_members
+        const { data: existingMember } = await client
           .from('workspace_members')
-          .upsert(
-            { workspace_id: workspaceId, user_id: profile.id, role: 'admin' },
-            { onConflict: 'workspace_id,user_id' },
-          );
+          .select('user_id')
+          .eq('workspace_id', workspaceId)
+          .eq('user_id', profile.id)
+          .maybeSingle();
 
-        const channelRows = [
+        if (!existingMember) {
+          const { error: memberError } = await client
+            .from('workspace_members')
+            .insert({ workspace_id: workspaceId, user_id: profile.id, role: 'admin' });
+          if (memberError) throw memberError;
+        }
+
+        // Ensure general and random default channels exist
+        const { data: existingChannels } = await client
+          .from('channels')
+          .select('id, name')
+          .eq('workspace_id', workspaceId);
+
+        const channelNames = new Set((existingChannels ?? []).map((c: { name: string }) => c.name));
+        const missingChannels = [
           {
             id: randomId(),
             workspace_id: workspaceId,
@@ -945,21 +1016,24 @@ export class ChatStateService {
             is_dm: false,
             created_by: profile.id,
           },
-        ];
-        const { error: channelError } = await client.from('channels').insert(channelRows);
-        if (channelError) throw channelError;
+        ].filter((c) => !channelNames.has(c.name));
 
-        const { error: membersError } = await client.from('channel_members').insert(
-          channelRows.map((channel) => ({ channel_id: channel.id, user_id: profile.id })),
-        );
-        if (membersError) throw membersError;
+        if (missingChannels.length > 0) {
+          const { error: channelError } = await client.from('channels').insert(missingChannels);
+          if (channelError) throw channelError;
+
+          const { error: membersError } = await client.from('channel_members').insert(
+            missingChannels.map((channel) => ({ channel_id: channel.id, user_id: profile.id })),
+          );
+          if (membersError) throw membersError;
+        }
 
         workspace = {
           id: workspaceId,
-          name: values.name.trim(),
-          slug: values.slug.trim().toLowerCase(),
+          name: existingWorkspace?.name ?? values.name.trim(),
+          slug: normalizedSlug,
           owner_id: profile.id,
-          created_at: new Date().toISOString(),
+          created_at: existingWorkspace?.created_at ?? new Date().toISOString(),
           icon_emoji: values.icon,
           accent: 'violet',
           member_count: 1,
@@ -972,8 +1046,9 @@ export class ChatStateService {
       this.toast.success('Workspace created', `Welcome to ${workspace.name}.`);
       return workspace;
     } catch (error) {
-      this.toast.error('Could not create workspace', this.errorMessage(error));
-      return null;
+      const msg = this.errorMessage(error);
+      this.toast.error('Could not create workspace', msg);
+      throw new Error(msg);
     }
   }
 
@@ -1977,7 +2052,44 @@ export class ChatStateService {
   }
 
   private errorMessage(error: unknown): string {
-    if (error instanceof Error) return error.message;
+    console.error('[PulseChat] Action error:', error);
+    if (error && typeof error === 'object') {
+      const candidate = error as {
+        message?: unknown;
+        error_description?: unknown;
+        details?: unknown;
+        hint?: unknown;
+      };
+      const message =
+        typeof candidate.message === 'string' && candidate.message
+          ? candidate.message
+          : typeof candidate.error_description === 'string' && candidate.error_description
+            ? candidate.error_description
+            : typeof candidate.details === 'string' && candidate.details
+              ? candidate.details
+              : typeof candidate.hint === 'string' && candidate.hint
+                ? candidate.hint
+                : error instanceof Error
+                  ? error.message
+                  : null;
+
+      if (message) {
+        const lower = message.toLowerCase();
+        if (
+          lower.includes('workspaces_slug_key') ||
+          (lower.includes('duplicate key') && lower.includes('slug'))
+        ) {
+          return 'That workspace URL is already in use. Please choose a different URL.';
+        }
+        if (lower.includes('violates foreign key constraint') && lower.includes('owner_id')) {
+          return 'User profile not found. Please refresh and try again.';
+        }
+        if (lower.includes('violates row-level security policy')) {
+          return 'Permission denied: please check your Supabase schema and policies.';
+        }
+        return message;
+      }
+    }
     if (typeof error === 'string') return error;
     return 'Something went wrong. Please try again.';
   }

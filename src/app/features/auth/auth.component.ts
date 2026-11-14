@@ -149,6 +149,41 @@ export class AuthComponent {
   }
 
   protected setTab(tab: AuthTab): void {
+    if (tab === 'signup' && this.tab() === 'signin') {
+      const email = this.signInForm.controls.email.value;
+      const password = this.signInForm.controls.password.value;
+      if (email && !this.signUpForm.controls.email.value) {
+        this.signUpForm.controls.email.setValue(email);
+        const emailPrefix = email.split('@')[0] || '';
+        const words = emailPrefix.split(/[._-]+/).filter(Boolean);
+        const suggestedName = words
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const suggestedHandle = emailPrefix
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 24);
+        if (!this.signUpForm.controls.displayName.value && suggestedName) {
+          this.signUpForm.controls.displayName.setValue(suggestedName);
+        }
+        if (!this.signUpForm.controls.handle.value && suggestedHandle) {
+          this.signUpForm.controls.handle.setValue(suggestedHandle);
+        }
+      }
+      if (password && !this.signUpForm.controls.password.value) {
+        this.signUpForm.controls.password.setValue(password);
+      }
+    } else if (tab === 'signin' && this.tab() === 'signup') {
+      const email = this.signUpForm.controls.email.value;
+      const password = this.signUpForm.controls.password.value;
+      if (email && !this.signInForm.controls.email.value) {
+        this.signInForm.controls.email.setValue(email);
+      }
+      if (password && !this.signInForm.controls.password.value) {
+        this.signInForm.controls.password.setValue(password);
+      }
+    }
+
     this.tab.set(tab);
     this.error.set(null);
     this.notice.set(null);
@@ -306,17 +341,64 @@ export class AuthComponent {
 
   private async runSignIn(): Promise<void> {
     this.submitting.set(true);
+    const email = this.signInForm.controls.email.value.trim();
+    const password = this.signInForm.controls.password.value;
     try {
-      await this.auth.signIn(
-        this.signInForm.controls.email.value,
-        this.signInForm.controls.password.value,
-      );
+      await this.auth.signIn(email, password);
       this.toast.success('Welcome back', 'Your workspace is ready.');
       await this.router.navigate(['/app']);
     } catch (error) {
+      const raw = this.messageOf(error).toLowerCase();
+      // If credentials do not match or user is not found, treat as a new user and prefill signup
+      if (
+        raw.includes('invalid login credentials') ||
+        raw.includes('invalid_grant') ||
+        raw.includes('user not found') ||
+        raw.includes('does not match')
+      ) {
+        this.redirectToSignUpWithPrefill(email, password);
+        return;
+      }
       this.error.set(this.auth.friendlyError(this.messageOf(error)));
     } finally {
       this.submitting.set(false);
+    }
+  }
+
+  private redirectToSignUpWithPrefill(email: string, password: string): void {
+    const emailPrefix = email.split('@')[0] || '';
+    const words = emailPrefix.split(/[._-]+/).filter(Boolean);
+    const suggestedName = words
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+    const suggestedHandle = emailPrefix
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 24);
+
+    this.signUpForm.patchValue({
+      email,
+      password,
+      displayName: this.signUpForm.controls.displayName.value || suggestedName,
+      handle: this.signUpForm.controls.handle.value || suggestedHandle,
+    });
+
+    this.tab.set('signup');
+    this.submitted.set(false);
+    this.error.set(null);
+    this.notice.set(
+      'No account found with this email. We prefilled your details — just enter your name to finish creating your account!',
+    );
+    this.toast.info('New to PulseChat?', 'Just fill in your name to create your account.');
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const input = document.getElementById('signup-name') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }, 80);
     }
   }
 

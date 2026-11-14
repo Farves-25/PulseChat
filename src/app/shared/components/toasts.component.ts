@@ -12,7 +12,7 @@ import { ToastService } from '../../core/services/toast.service';
   imports: [LucideCircleAlert, LucideCircleCheck, LucideInfo, LucideX],
   template: `
     <div
-      class="pointer-events-none fixed bottom-4 right-4 z-[120] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2 sm:bottom-6 sm:right-6"
+      class="pointer-events-none fixed bottom-4 right-4 z-[200] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2 sm:bottom-6 sm:right-6"
       aria-live="polite"
       aria-atomic="false"
     >
