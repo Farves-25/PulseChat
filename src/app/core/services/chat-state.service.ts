@@ -96,6 +96,7 @@ interface WorkspaceMembershipRow {
 const DRAFT_KEY = 'pulsechat.drafts';
 const LAST_CHANNEL_PREFIX = 'pulsechat.lastChannel';
 const STARS_PREFIX = 'pulsechat.stars';
+const MUTED_PREFIX = 'pulsechat.muted';
 
 function readDrafts(): Record<string, MessageDraft> {
   try {
@@ -157,6 +158,7 @@ export class ChatStateService {
   readonly searchQuery = signal('');
   readonly searching = signal(false);
   readonly starredChannelIds = signal<string[]>([]);
+  readonly mutedChannelIds = signal<string[]>([]);
   readonly drafts = signal<Record<string, MessageDraft>>(readDrafts());
   readonly failedMessageIds = signal<Set<string>>(new Set());
   readonly profiles = signal<Map<string, Profile>>(new Map());
@@ -1284,6 +1286,24 @@ export class ChatStateService {
     this.persistStars(next);
   }
 
+  toggleMute(channelId: string): boolean {
+    const muted = new Set(this.mutedChannelIds());
+    const willMute = !muted.has(channelId);
+    if (willMute) {
+      muted.add(channelId);
+    } else {
+      muted.delete(channelId);
+    }
+    const next = [...muted];
+    this.mutedChannelIds.set(next);
+    this.persistMuted(next);
+    return willMute;
+  }
+
+  isChannelMuted(channelId: string): boolean {
+    return this.mutedChannelIds().includes(channelId);
+  }
+
   setDraft(channelId: string, content: string): void {
     this.drafts.update((drafts) => {
       const next = { ...drafts };
@@ -1363,6 +1383,7 @@ export class ChatStateService {
     this.searchResults.set([]);
     this.searchQuery.set('');
     this.starredChannelIds.set([]);
+    this.mutedChannelIds.set([]);
     this.bootstrapped.set(false);
     this.connection.set('connecting');
     this.hydratedProfileIds.clear();
@@ -1406,6 +1427,7 @@ export class ChatStateService {
         this.activeWorkspace.set(workspace);
         this.members.set(this.demo.getMembers(workspaceId));
         this.starredChannelIds.set(this.demo.getStars(userId));
+        this.mutedChannelIds.set(this.readMuted());
         const channels = this.demo.getChannels(userId, workspaceId);
         this.channels.set(channels);
         this.setOnlineFromDemo();
@@ -1499,6 +1521,7 @@ export class ChatStateService {
         this.members.set(members);
 
         this.starredChannelIds.set(this.readStars());
+        this.mutedChannelIds.set(this.readMuted());
         this.subscribeToWorkspace(workspaceId);
         this.subscribeToUserEvents(userId);
 
@@ -2320,6 +2343,27 @@ export class ChatStateService {
     if (!userId || !workspaceId) return;
     try {
       localStorage.setItem(`${STARS_PREFIX}.${userId}.${workspaceId}`, JSON.stringify(stars));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  private readMuted(): string[] {
+    const userId = this.currentUserId();
+    if (!userId) return [];
+    try {
+      const raw = localStorage.getItem(`${MUTED_PREFIX}.${userId}`);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistMuted(muted: string[]): void {
+    const userId = this.currentUserId();
+    if (!userId) return;
+    try {
+      localStorage.setItem(`${MUTED_PREFIX}.${userId}`, JSON.stringify(muted));
     } catch {
       // Ignore storage failures.
     }

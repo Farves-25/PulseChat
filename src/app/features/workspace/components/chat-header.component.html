@@ -47,6 +47,11 @@
       >
         <svg lucideStar [size]="13" [attr.fill]="starred() ? 'currentColor' : 'none'"></svg>
       </button>
+      @if (isMuted()) {
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center text-muted-2" title="Notifications muted">
+          <svg lucideBellOff [size]="13"></svg>
+        </span>
+      }
     </div>
 
     @if (!editingTopic()) {
@@ -236,9 +241,14 @@
             <svg lucideCopy [size]="14"></svg>
             Copy channel link
           </button>
-          <button type="button" class="header-menu-item" (click)="muteChannel()">
-            <svg lucideBell [size]="14"></svg>
-            Mute notifications
+          <button type="button" class="header-menu-item" (click)="toggleMuteChannel()">
+            @if (isMuted()) {
+              <svg lucideBellOff [size]="14"></svg>
+              Unmute notifications
+            } @else {
+              <svg lucideBell [size]="14"></svg>
+              Mute notifications
+            }
           </button>
         </div>
       }

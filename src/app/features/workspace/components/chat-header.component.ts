@@ -1,6 +1,7 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
 import {
   LucideBell,
+  LucideBellOff,
   LucideCopy,
   LucideFileText,
   LucideLock,
@@ -27,6 +28,7 @@ import { UserAvatarComponent } from '../../../shared/components/user-avatar.comp
     ClickOutsideDirective,
     UserAvatarComponent,
     LucideBell,
+    LucideBellOff,
     LucideCopy,
     LucideFileText,
     LucideLock,
@@ -65,6 +67,10 @@ export class ChatHeaderComponent {
   protected readonly starred = computed(() => {
     const id = this.channel()?.id;
     return id ? this.state.starredChannelIds().includes(id) : false;
+  });
+  protected readonly isMuted = computed(() => {
+    const id = this.channel()?.id;
+    return id ? this.state.mutedChannelIds().includes(id) : false;
   });
   protected readonly members = this.state.activeMembers;
   protected readonly memberCount = computed(() => this.members().length);
@@ -143,9 +149,16 @@ export class ChatHeaderComponent {
     }
   }
 
-  protected muteChannel(): void {
+  protected toggleMuteChannel(): void {
     this.moreOpen.set(false);
-    this.toast.info('Notifications muted', 'You will only be alerted for mentions.');
+    const id = this.channel()?.id;
+    if (!id) return;
+    const muted = this.state.toggleMute(id);
+    if (muted) {
+      this.toast.info('Notifications muted', 'You will only be alerted for mentions.');
+    } else {
+      this.toast.success('Notifications unmuted', 'You will now receive alerts for all messages.');
+    }
   }
 
   protected viewProfile(): void {

@@ -2,6 +2,7 @@ import { Component, computed, inject, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   LucideActivity,
+  LucideBellOff,
   LucideCheck,
   LucideChevronDown,
   LucideChevronRight,
@@ -39,6 +40,7 @@ interface PresenceOption {
     ClickOutsideDirective,
     UserAvatarComponent,
     LucideActivity,
+    LucideBellOff,
     LucideCheck,
     LucideChevronDown,
     LucideChevronRight,

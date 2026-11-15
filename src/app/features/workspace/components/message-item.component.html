@@ -56,7 +56,7 @@
           </div>
 
           @if (reactionOpen()) {
-            <div class="absolute bottom-full left-0 z-40 mb-1.5 animate-pop">
+            <div class="absolute bottom-full right-0 z-40 mb-1.5 animate-pop">
               <div class="glass-strong mb-1 flex items-center gap-0.5 rounded-xl p-1">
                 @for (emoji of quickReactions; track emoji) {
                   <button
@@ -74,7 +74,7 @@
           }
 
           @if (menuOpen()) {
-            <div class="glass-strong absolute bottom-full left-0 z-40 mb-1.5 w-44 overflow-hidden rounded-xl p-1 shadow-lg animate-pop">
+            <div class="glass-strong absolute bottom-full right-0 z-40 mb-1.5 w-44 overflow-hidden rounded-xl p-1 shadow-lg animate-pop">
               @if (!confirmDelete()) {
                 @if (context() === 'channel') {
                   <button type="button" class="menu-item" (click)="openThread()">
@@ -360,7 +360,7 @@
           </div>
 
           @if (reactionOpen()) {
-            <div class="absolute bottom-full right-0 z-40 mb-1.5 animate-pop">
+            <div class="absolute bottom-full left-0 z-40 mb-1.5 animate-pop">
               <div class="glass-strong mb-1 flex items-center gap-0.5 rounded-xl p-1">
                 @for (emoji of quickReactions; track emoji) {
                   <button
@@ -378,7 +378,7 @@
           }
 
           @if (menuOpen()) {
-            <div class="glass-strong absolute bottom-full right-0 z-40 mb-1.5 w-44 overflow-hidden rounded-xl p-1 shadow-lg animate-pop">
+            <div class="glass-strong absolute bottom-full left-0 z-40 mb-1.5 w-44 overflow-hidden rounded-xl p-1 shadow-lg animate-pop">
               @if (!confirmDelete()) {
                 @if (context() === 'channel') {
                   <button type="button" class="menu-item" (click)="openThread()">
