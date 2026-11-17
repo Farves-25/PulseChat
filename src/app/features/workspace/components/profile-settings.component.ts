@@ -118,6 +118,11 @@ export class ProfileSettingsComponent {
     this.auth.profile()?.presence ?? 'online',
   );
 
+  protected readonly confirmingDelete = signal(false);
+  protected readonly deleting = signal(false);
+  protected readonly deleteConfirmText = signal('');
+  protected readonly canDelete = computed(() => this.deleteConfirmText().trim() === 'DELETE');
+
   protected readonly profile = this.auth.profile;
   protected readonly isDemo = this.auth.isDemo;
   protected readonly email = this.auth.email;
@@ -230,6 +235,35 @@ export class ProfileSettingsComponent {
     this.state.leave();
     await this.auth.signOut();
     await this.router.navigate(['/auth']);
+  }
+
+  protected toggleDelete(): void {
+    this.confirmingDelete.update((open) => !open);
+    this.deleteConfirmText.set('');
+  }
+
+  protected onDeleteConfirmInput(event: Event): void {
+    this.deleteConfirmText.set((event.target as HTMLInputElement).value);
+  }
+
+  protected async deleteAccount(): Promise<void> {
+    if (!this.canDelete() || this.deleting()) return;
+    this.deleting.set(true);
+    try {
+      await this.auth.deleteAccount();
+      this.state.leave();
+      this.toast.success('Account deleted', 'Your account and data have been removed.');
+      await this.router.navigate(['/auth']);
+    } catch (error) {
+      this.toast.error(
+        'Could not delete account',
+        error instanceof Error
+          ? error.message
+          : 'Make sure the delete_my_account function exists in Supabase.',
+      );
+    } finally {
+      this.deleting.set(false);
+    }
   }
 
   protected close(): void {

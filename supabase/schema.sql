@@ -274,6 +274,7 @@ begin
     id,
     display_name,
     handle,
+    avatar_url,
     status_message,
     presence,
     email
@@ -282,10 +283,13 @@ begin
     new.id,
     coalesce(
       new.raw_user_meta_data ->> 'display_name',
+      new.raw_user_meta_data ->> 'full_name',
+      new.raw_user_meta_data ->> 'name',
       split_part(new.email, '@', 1),
       'New member'
     ),
     final_handle,
+    coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture'),
     'Available',
     'online',
     new.email
@@ -793,3 +797,23 @@ end $$;
 -- insert into public.workspace_members (workspace_id, user_id, role)
 -- values ('<workspace-id>', '<profile-id>', 'member');
 -- ---------------------------------------------------------------------------
+
+-- Lets a signed-in user permanently delete their own account.
+-- Deleting the auth user cascades to profiles and everything referencing them
+-- (including workspaces they own). Run once in the SQL Editor.
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;

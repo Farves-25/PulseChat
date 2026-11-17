@@ -17,7 +17,6 @@ import {
   LucideEye,
   LucideEyeOff,
   LucideHash,
-  LucideKeyRound,
   LucideLoaderCircle,
   LucideLockKeyhole,
   LucideMail,
@@ -56,7 +55,6 @@ function handleAvailability(control: AbstractControl): ValidationErrors | null {
     LucideEye,
     LucideEyeOff,
     LucideHash,
-    LucideKeyRound,
     LucideLoaderCircle,
     LucideLockKeyhole,
     LucideMail,
@@ -85,7 +83,6 @@ export class AuthComponent {
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
-  protected readonly magicLinkSending = signal(false);
   protected readonly forgotSending = signal(false);
   protected readonly submitted = signal(false);
   protected readonly showSwitchToSignIn = signal(false);
@@ -184,6 +181,15 @@ export class AuthComponent {
       if (password && !this.signInForm.controls.password.value) {
         this.signInForm.controls.password.setValue(password);
       }
+    } else if (tab === 'forgot') {
+      const email = (
+        this.tab() === 'signup'
+          ? this.signUpForm.controls.email.value
+          : this.signInForm.controls.email.value
+      ).trim();
+      if (email) {
+        this.forgotForm.controls.email.setValue(email);
+      }
     }
 
     this.tab.set(tab);
@@ -270,28 +276,6 @@ export class AuthComponent {
     }
   }
 
-  protected async sendMagicLink(): Promise<void> {
-    this.error.set(null);
-    this.notice.set(null);
-    const emailControl = this.signInForm.controls.email;
-    if (emailControl.invalid) {
-      emailControl.markAsTouched();
-      this.error.set('Enter a valid email address first.');
-      return;
-    }
-
-    this.magicLinkSending.set(true);
-    try {
-      const message = await this.auth.sendMagicLink(emailControl.value);
-      this.notice.set(message);
-      this.toast.success('Magic link sent', 'Check your inbox to finish signing in.');
-    } catch (error) {
-      this.error.set(this.auth.friendlyError(this.messageOf(error)));
-    } finally {
-      this.magicLinkSending.set(false);
-    }
-  }
-
   protected enterDemo(): void {
     this.error.set(null);
     this.auth.startDemo();
@@ -360,6 +344,31 @@ export class AuthComponent {
     }
   }
 
+  protected async continueWithGoogle(): Promise<void> {
+    this.error.set(null);
+    this.notice.set(null);
+    this.submitting.set(true);
+    try {
+      await this.auth.signInWithGoogle();
+    } catch (error) {
+      this.error.set(this.auth.friendlyError(this.messageOf(error)));
+      this.submitting.set(false);
+    }
+  }
+
+  protected goToForgotPassword(): void {
+    const email =
+      this.signUpForm.controls.email.value.trim() || this.signInForm.controls.email.value.trim();
+    if (email) {
+      this.forgotForm.controls.email.setValue(email);
+    }
+    this.error.set(null);
+    this.notice.set(null);
+    this.showSwitchToSignIn.set(false);
+    this.showCreateAccountPrompt.set(false);
+    this.setTab('forgot');
+  }
+
   protected switchToSignUpWithCurrentCredentials(): void {
     const email = this.signInForm.controls.email.value.trim();
     const password = this.signInForm.controls.password.value;
@@ -395,7 +404,7 @@ export class AuthComponent {
 
         if (emailExists === true) {
           // Account definitely exists -> wrong password. Keep on signin tab!
-          this.error.set('Incorrect password for this account. If you forgot your password, click "Forgot password?" to reset it.');
+          this.error.set('Incorrect password for this account. If you signed up with Google, use Continue with Google, or click "Forgot password?" to set a password.');
           return;
         }
 
@@ -475,7 +484,7 @@ export class AuthComponent {
       const msg = this.auth.friendlyError(this.messageOf(error));
       this.error.set(msg);
       const lower = msg.toLowerCase();
-      if (lower.includes('already exists') || lower.includes('already registered')) {
+      if (lower.includes('may be registered') || lower.includes('already registered')) {
         this.showSwitchToSignIn.set(true);
       }
     } finally {

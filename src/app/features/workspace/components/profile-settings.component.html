@@ -246,6 +246,45 @@
                 </div>
               </div>
 
+              @if (!isDemo()) {
+                <section class="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3" aria-labelledby="delete-account-heading">
+                  <h3 id="delete-account-heading" class="text-[0.75rem] font-bold text-rose-500">Delete account</h3>
+                  <p class="mt-1 text-[0.7rem] leading-5 text-muted">
+                    Permanently removes your account, profile, messages, and any workspaces you own. This cannot be undone.
+                  </p>
+                  @if (confirmingDelete()) {
+                    <label class="field-label mt-2" for="delete-confirm">Type DELETE to confirm</label>
+                    <input
+                      id="delete-confirm"
+                      class="field"
+                      type="text"
+                      autocomplete="off"
+                      [value]="deleteConfirmText()"
+                      (input)="onDeleteConfirmInput($event)"
+                    />
+                    <div class="mt-2 flex gap-2">
+                      <button type="button" class="btn-ghost" [disabled]="deleting()" (click)="toggleDelete()">Cancel</button>
+                      <button
+                        type="button"
+                        class="rounded-xl bg-rose-600 px-3 py-2 text-[0.75rem] font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
+                        [disabled]="!canDelete() || deleting()"
+                        (click)="deleteAccount()"
+                      >
+                        {{ deleting() ? 'Deleting…' : 'Permanently delete my account' }}
+                      </button>
+                    </div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="btn-ghost mt-2 text-rose-500"
+                      (click)="toggleDelete()"
+                    >
+                      Delete my account…
+                    </button>
+                  }
+                </section>
+              }
+
               <div class="flex items-center justify-end gap-2 border-t border-default pt-3">
                 <button type="button" class="btn-ghost" [disabled]="saving()" (click)="close()">
                   Close

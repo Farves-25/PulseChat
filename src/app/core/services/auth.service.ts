@@ -101,20 +101,19 @@ export class AuthService {
     }
   }
 
-  async sendMagicLink(email: string): Promise<string> {
+  /** Starts the Google OAuth redirect flow. The browser leaves the page on success. */
+  async signInWithGoogle(): Promise<void> {
     if (!this.supabase.client) {
       throw new Error(
         'Supabase is not configured. Add your credentials to .env, or explore the demo workspace.',
       );
     }
 
-    const redirectTo = `${window.location.origin}/app`;
-    const { error } = await this.supabase.client.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: redirectTo },
+    const { error } = await this.supabase.client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/app` },
     });
     if (error) throw error;
-    return 'Magic link sent — check your inbox.';
   }
 
   async sendPasswordReset(email: string): Promise<string> {
@@ -139,7 +138,8 @@ export class AuthService {
     if (!this.supabase.client) return null;
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Try RPC if installed
+    // Only the RPC gives a trustworthy answer. Returns null when it is not installed,
+    // so callers never wrongly treat an existing account (e.g. a Google user) as new.
     try {
       const { data, error } = await this.supabase.client.rpc('check_email_exists', {
         check_email: cleanEmail,
@@ -148,30 +148,9 @@ export class AuthService {
         return data;
       }
     } catch {
-      // Fall through to native check
+      // Fall through
     }
-
-    // 2. Native Supabase Auth existence check (reliable out of the box)
-    try {
-      const res = await this.supabase.client.auth.signInWithOtp({
-        email: cleanEmail,
-        options: { shouldCreateUser: false },
-      });
-      if (res.error) {
-        const msg = res.error.message?.toLowerCase() || '';
-        if (
-          res.error.status === 422 ||
-          msg.includes('signups not allowed') ||
-          msg.includes('user not found') ||
-          msg.includes('no user')
-        ) {
-          return false; // Email does not exist in Supabase
-        }
-      }
-      return true; // Email already exists
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   async updatePassword(newPassword: string): Promise<void> {
@@ -216,6 +195,14 @@ export class AuthService {
     this.session.set(null);
     this.profile.set(null);
     this.mode.set(null);
+  }
+
+  /** Permanently deletes the signed-in Supabase user and all of their data. */
+  async deleteAccount(): Promise<void> {
+    const client = this.supabase.requireClient();
+    const { error } = await client.rpc('delete_my_account');
+    if (error) throw new Error(this.friendlyError(error.message));
+    await this.signOut();
   }
 
   async updateProfile(patch: Partial<Profile>): Promise<Profile> {
@@ -285,13 +272,13 @@ export class AuthService {
   friendlyError(message: string): string {
     const normalized = message.toLowerCase();
     if (normalized.includes('invalid login credentials')) {
-      return 'That email and password combination does not match our records.';
+      return 'Incorrect email or password. If you signed up with Google, use Continue with Google, or reset your password.';
     }
     if (normalized.includes('email not confirmed')) {
       return 'Please confirm your email address before signing in.';
     }
     if (normalized.includes('user already registered')) {
-      return 'An account with that email already exists. Try signing in instead.';
+      return 'This email may be registered with Google — use Continue with Google, or reset your password.';
     }
     if (normalized.includes('duplicate key') && normalized.includes('handle')) {
       return 'That handle is already taken. Try another one.';
